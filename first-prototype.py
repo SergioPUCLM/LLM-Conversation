@@ -29,8 +29,8 @@ def main():
     remaining_messages = CONVERSATION_LENGTH
 
     # Model names for the two speakers
-    model1 = 'gemma2-9b-it'  # The model the first speaker will use
-    model2 = 'gemma2-9b-it'  # The model the second speaker will use
+    model1 = 'llama-3.1-8b-instant'  # The model the first speaker will use
+    model2 = 'llama-3.1-8b-instant'  # The model the second speaker will use
 
     # AVAILABLE MODELS
     # LLAMA (META)
@@ -57,16 +57,29 @@ def main():
     # llava-v1.5-7b-4096-preview  <- Very variable message length but works better than most (sometimes they repeat themselves)
 
     # Topic of conversation and context
-    topic = 'Using arguments and examples, convince me of your opinion on: ¿Is time travel real?. Keep responses to a single phrase. Do not repeat arguments. Address me in second person.'
-    context = []  # Stores the conversation history
+    user_topic = '¿Is time travel real?'  # Ask for the topic
+    model1_personality = f'You belive time travel is real and in fact are convinced you are a time traveler yourself. Make up examples and arguments to defend your position. Get progressively more angry.'
+    model2_personality = f'You do not believe in time travel and in fact think people who do are suffering from some kind of condition. Show factual evidence to support your position.'
 
-    # Personalities for each model
-    model1_personality = 'You belive time travel is real and in fact are convinced you are a time traveler yourself. Make up examples and arguments to defend your position. Get progressively more angry.'
-    model2_personality = 'You do not believe in time travel and in fact think people who do are suffering from some kind of condition. Show factual evidence to support your position.'
+    # Pre-Cooked parameters
+    topic = f'Using arguments and examples, convince me of your opinion on: {user_topic}. Keep responses to a single phrase. Do not repeat arguments. Do not engage in roleplay.'
+
+    context = []  # Stores the conversation history
 
     # Create Groq clients
     client1 = groq.Groq(api_key=API_KEY_1)
     client2 = groq.Groq(api_key=API_KEY_2)
+
+    # Ask each client to name themselves (No real practical use but it's funny)
+    prompt_name_1 = f'Give yoursef a SINGLE WORD spanish name. Do not simulate a response, I just need a name.'
+    model1_name = generate_response(client1, prompt_name_1, model1)
+    model1_name = model1_name.replace('\n', '')
+    model1_name = ''.join(e for e in model1_name if e.isalnum())
+
+    prompt_name_2 = f'Give yoursef a SINGLE WORD spanish name that is not {model1_name}. Do not simulate a response, I just need a name.'
+    model2_name = generate_response(client2, prompt_name_2, model2) 
+    model2_name = model2_name.replace('\n', '')
+    model2_name = ''.join(e for e in model2_name if e.isalnum())
 
     # Randomly choose the starting speaker
     current_speaker = random.choice([1, 2])
@@ -81,12 +94,12 @@ def main():
     if current_speaker == 1:
         prompt = f"{model1_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour response:"
         response = generate_response(client1, prompt, model1)
-        print("Model 1 (Time traveler):", response)
+        print(f"Model 1 ({model1_name}):", response)
         print('-' * 50)
     else:
         prompt = f"{model2_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour response:"
         response = generate_response(client2, prompt, model2)
-        print("Model 2 (Non - Traveler):", response)
+        print(f"Model 2 ({model2_name}):", response)
         print('-' * 50)
 
     remaining_messages -= 1
@@ -101,13 +114,13 @@ def main():
             # Prepare the input for model 1
             prompt = f"{model1_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nYour response:"
             response = generate_response(client1, prompt, model1)
-            print("Model 1 (Time traveler):", response)
+            print(f"Model 1 ({model1_name}):", response)
             print('-' * 50)  # Separator for better readability
         else:
             # Prepare the input for model 2
             prompt = f"{model2_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nYour response:"
             response = generate_response(client2, prompt, model2)
-            print("Model 2 (Non - Traveler):", response)
+            print(f"Model 2 ({model2_name}):", response)
             print('-' * 50)  # Separator for better readability
         
         # Add the response to the conversation context
