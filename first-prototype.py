@@ -25,6 +25,17 @@ def generate_response(client, prompt, model):
     return chat_completion.choices[0].message.content
 
 
+def generate_name(client, model, blacklisted=None):
+    if blacklisted is None:
+        prompt = 'Give yoursef a SINGLE WORD spanish name. Do not simulate a response, I just need a name.'
+    else:  # If a blacklisted name is provided, ensure the generated name is different
+        prompt = f'Give yoursef a SINGLE WORD spanish name that is not {blacklisted}. Do not simulate a response, I just need a name.'
+    name = generate_response(client, prompt, model)  # Ask model
+    name = name.replace('\n', '')  # Remove line breaks
+    name = ''.join(e for e in name if e.isalnum())  # Remove special characters
+    return name
+
+
 def main():
     remaining_messages = CONVERSATION_LENGTH
 
@@ -71,15 +82,8 @@ def main():
     client2 = groq.Groq(api_key=API_KEY_2)
 
     # Ask each client to name themselves (No real practical use but it's funny)
-    prompt_name_1 = f'Give yoursef a SINGLE WORD spanish name. Do not simulate a response, I just need a name.'
-    model1_name = generate_response(client1, prompt_name_1, model1)
-    model1_name = model1_name.replace('\n', '')
-    model1_name = ''.join(e for e in model1_name if e.isalnum())
-
-    prompt_name_2 = f'Give yoursef a SINGLE WORD spanish name that is not {model1_name}. Do not simulate a response, I just need a name.'
-    model2_name = generate_response(client2, prompt_name_2, model2) 
-    model2_name = model2_name.replace('\n', '')
-    model2_name = ''.join(e for e in model2_name if e.isalnum())
+    model1_name = generate_name(client1, model1)
+    model2_name = generate_name(client2, model2, model1_name)
 
     # Randomly choose the starting speaker
     current_speaker = random.choice([1, 2])
@@ -92,12 +96,12 @@ def main():
 
     # Prepare the input prompt for the first speaker
     if current_speaker == 1:
-        prompt = f"{model1_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour response:"
+        prompt = f"{model1_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour opinion:"
         response = generate_response(client1, prompt, model1)
         print(f"Model 1 ({model1_name}):", response)
         print('-' * 50)
     else:
-        prompt = f"{model2_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour response:"
+        prompt = f"{model2_personality}\nContext: 'This is the first message of the conversation'\nInstruction: {start_message}\nYour opinion:"
         response = generate_response(client2, prompt, model2)
         print(f"Model 2 ({model2_name}):", response)
         print('-' * 50)
