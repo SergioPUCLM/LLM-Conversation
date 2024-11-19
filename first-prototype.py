@@ -2,9 +2,13 @@ import groq
 import random
 import time
 
+
+CONVERSATION_LENGTH = 15 # Number of exchanges in the conversation
+CONVERSATION_TEMPERATURE = 0.5  # Temperature for chat completions
+
 # Read the API keys for the clients
-API_KEY_1 = open('api-key.txt', 'r').read().strip()  # Groq API key for client 1
-API_KEY_2 = open('api-key.txt', 'r').read().strip()  # Groq API key for client 2
+API_KEY_1 = open('api-key1.txt', 'r').read().strip()  # Groq API key for client 1
+API_KEY_2 = open('api-key1.txt', 'r').read().strip()  # Groq API key for client 2
 
 def generate_response(client, prompt, model):
     # Create a message structure for the chat completion
@@ -13,7 +17,8 @@ def generate_response(client, prompt, model):
     # Generate the response using the chat completion method
     chat_completion = client.chat.completions.create(
         messages=message,
-        model=model
+        model=model,
+        temperature=CONVERSATION_TEMPERATURE,  # Range from 0 to 1, higher values result in more creative responses but may be less coherent
     )
 
     # Extract and return the response content
@@ -21,12 +26,38 @@ def generate_response(client, prompt, model):
 
 
 def main():
+    remaining_messages = CONVERSATION_LENGTH
+
     # Model names for the two speakers
-    model1 = 'llama3-8b-8192'  # The model the first speaker will use
-    model2 = 'llama3-8b-8192'  # The model the second speaker will use
+    model1 = 'gemma2-9b-it'  # The model the first speaker will use
+    model2 = 'gemma2-9b-it'  # The model the second speaker will use
+
+    # AVAILABLE MODELS
+    # LLAMA (META)
+    # llama-3.1-70b-versatile  <- Insists on roleplaying
+    # llama-3.1-8b-instant  <- Fine
+    # llama-3.2-11b-text-preview  <- Fine
+    # llama-3.2-11b-vision-preview  <- Fine
+    # llama-3.2-1b-preview  <- Insists on roleplaying
+    # llama-3.2-3b-preview  <- Fine
+    # llama-3.2-90b-text-preview  <- Fine but needs longer waits
+    # llama-3.2-90b-vision-preview  <- It insists on roleplaying (longer messages as conversation progresses)
+    # llama-guard-3-8b  <- Checks if messages are "safe" but doesn't generate text by itself
+    # llama3-70b-8192  <- Fine
+    # llama3-8b-8192  <- Fine
+
+    # GOOGLE
+    # gemma-7b-it  <- Ignores message length and tries to make lists
+    # gemma2-9b-it  <- Fine (very short messages and predictable conversations)
+
+    # MIXTRAL
+    # mixtral-8x7b-32768  <- Problems with messages longer than requested
+
+    # OTHER
+    # llava-v1.5-7b-4096-preview  <- Very variable message length but works better than most (sometimes they repeat themselves)
 
     # Topic of conversation and context
-    topic = 'Using arguments and examples, convince me of your opinion on: ¿Is time travel real?. Keep responses to 1 phrase. Do not repeat arguments. Address me in second person.'
+    topic = 'Using arguments and examples, convince me of your opinion on: ¿Is time travel real?. Keep responses to a single phrase. Do not repeat arguments. Address me in second person.'
     context = []  # Stores the conversation history
 
     # Personalities for each model
@@ -58,14 +89,14 @@ def main():
         print("Model 2 (Non - Traveler):", response)
         print('-' * 50)
 
+    remaining_messages -= 1
     time.sleep(5)  # Pause briefly to simulate real conversation pacing
-    context.append(f"Model {current_speaker}: {response}")
 
     # Switch the speaker
     current_speaker = 2 if current_speaker == 1 else 1
 
     # Loop for the conversation
-    for _ in range(15):  # Limit the conversation to 15 exchanges for manageability
+    for _ in range(remaining_messages):  # Limit the conversation to 15 exchanges for manageability
         if current_speaker == 1:
             # Prepare the input for model 1
             prompt = f"{model1_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nYour response:"
@@ -80,10 +111,10 @@ def main():
             print('-' * 50)  # Separator for better readability
         
         # Add the response to the conversation context
-        context.append(f"Model {current_speaker}: {response}")
+        context.append(f"{response}")
 
         # Ensure the context doesn't exceed 15 messages
-        if len(context) > 15:
+        if len(context) > CONVERSATION_LENGTH:
             context.pop(0)
 
         # Switch the speaker
