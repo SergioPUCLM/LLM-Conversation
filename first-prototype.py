@@ -69,11 +69,11 @@ def main():
 
     # Topic of conversation and context
     user_topic = '¿Is time travel real?'  # Ask for the topic
-    model1_personality = f'You belive time travel is real and in fact are convinced you are a time traveler yourself. Make up examples and arguments to defend your position. Get progressively more angry.'
+    model1_personality = f'You belive time travel is real and in fact are convinced you are a time traveler yourself. Make up examples and arguments to defend your position.'
     model2_personality = f'You do not believe in time travel and in fact think people who do are suffering from some kind of condition. Show factual evidence to support your position.'
 
     # Pre-Cooked parameters
-    topic = f'Using arguments and examples, convince me of your opinion on: {user_topic}. Keep responses to a single phrase. Do not repeat arguments. Do not engage in roleplay.'
+    topic = f'Using arguments and examples, convince me of your opinion on: {user_topic}. Keep responses to a single phrase. Do not repeat arguments. Do not engage in roleplay. I will inform you on how many messages are left in the conversation, so try to end it in a coherent way.'
 
     context = []  # Stores the conversation history
 
@@ -107,22 +107,23 @@ def main():
         print('-' * 50)
 
     remaining_messages -= 1
+    print(f"Remaining messages: {remaining_messages}")
     time.sleep(5)  # Pause briefly to simulate real conversation pacing
 
     # Switch the speaker
     current_speaker = 2 if current_speaker == 1 else 1
 
     # Loop for the conversation
-    for _ in range(remaining_messages):  # Limit the conversation to 15 exchanges for manageability
+    for _ in range(remaining_messages):
         if current_speaker == 1:
             # Prepare the input for model 1
-            prompt = f"{model1_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nYour response:"
+            prompt = f"{model1_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nThere are {remaining_messages} messages left\nYour response:"
             response = generate_response(client1, prompt, model1)
             print(f"Model 1 ({model1_name}):", response)
             print('-' * 50)  # Separator for better readability
         else:
             # Prepare the input for model 2
-            prompt = f"{model2_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nYour response:"
+            prompt = f"{model2_personality}\nTopic: {topic}\nContext: {' '.join(context)}\nThere are {remaining_messages} messages left\nYour response:"
             response = generate_response(client2, prompt, model2)
             print(f"Model 2 ({model2_name}):", response)
             print('-' * 50)  # Separator for better readability
@@ -136,9 +137,18 @@ def main():
 
         # Switch the speaker
         current_speaker = 2 if current_speaker == 1 else 1
+
+        remaining_messages -= 1
+        print(f"Remaining messages: {remaining_messages}")
         
         # Pause briefly to simulate real conversation pacing
         time.sleep(5)
+
+    print('Conversation ended.')
+    prompt = f'Give me a full analysis of the conversation and who do you think made the best arguments.\nTopic: {user_topic}\nConversation: {context}\nAnalysis:'
+    response = generate_response(client1, prompt, model1)
+    print(f"Analysis Model:", response)
+
 
 if __name__ == '__main__':
     main()
