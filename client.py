@@ -10,7 +10,7 @@ try:
     print(f"Conectado al servidor {HOST}:{PORT}...")
 
     while True:
-        message = input("Cliente dice")
+        message = input("Cliente dice: ")
         client_socket.sendall(message.encode())
         print(f"Cliente dice: {message}")
 
