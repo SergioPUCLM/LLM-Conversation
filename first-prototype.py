@@ -8,6 +8,9 @@ CONVERSATION_TEMPERATURE = 0.5  # Temperature for chat completions
 SLEEP_TIME = 1  # Time to wait between messages to simulate a real conversation
 CONVINCE_TIME = 4  # Amount of messages there has to be left for one of the models to beging questioning their beliefs
 CONVINCE_TIME_DEFINITIVE = 2  # Amount of messages left for one of the models to be definitively convinced
+FREQUENCY_PENALTY = 0.5  # Penalty for the frequency of words (eg. not "the the the")
+PRESENCE_PENALTY = 0.8  # Penalty for the presence of words of topic (eg. if topic the moon speak about the moon and later of other satellites)
+
 
 # Read the API keys for the clients
 API_KEY_1 = open('api-key1.txt', 'r').read().strip()  # Groq API key for client 1
@@ -22,7 +25,10 @@ def generate_response(client, prompt, model):
     chat_completion = client.chat.completions.create(
         messages=message,
         model=model,
-        temperature=CONVERSATION_TEMPERATURE,  # Range from 0 to 1, higher values result in more creative responses but may be less coherent
+        temperature=CONVERSATION_TEMPERATURE,  # Range from 0 to 2, higher values result in more creative responses but may be less coherent
+        frequency_penalty=FREQUENCY_PENALTY,   # Range from -2 to 2 lower values result in more repetitive responses
+        presence_penalty=PRESENCE_PENALTY,     # Range from -2 to 2 lower values result in more repetitive responses
+
     )
 
     # Extract and return the response content
