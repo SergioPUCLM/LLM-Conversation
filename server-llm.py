@@ -99,16 +99,10 @@ def main():
     model1_personality = f'{model1_opinion} Inventate argumentos y datos para defender tu opinión.'
     model2_personality = f'{model2_opinion} Muestra datos reales y argumentos para defender tu opinión.'
 
-    topic = f'Using arguments and examples, convince me of your opinion on: {user_topic}. \
+    topic = f'Con tus propios metodos, convince me of your opinion on: {user_topic}. \
         Keep responses to a single phrase. Do not repeat arguments. \
         NOT SAY THE NUMBER OF THE ARGUMENT. \
         Do not engage in roleplay. If you are told to be convinced, act accordingly.'
-    
-    topic = f'Usando argumentos y ejemplos, convénceme de tu opinión sobre este tema: {user_topic}. \
-        Mantén las respuestas a una sola frase. No repitas argumentos.\
-        NO DIGAS EL NÚMERO DEL ARGUMENTO\
-        No te involucres en juegos de rol ni roleplay. Si se te indica de que te convenzacas con otro argumento, \
-        actúa en consecuencia.'
  
     model1_name = generate_name(client, model1)  # Generate a name for the server model
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
