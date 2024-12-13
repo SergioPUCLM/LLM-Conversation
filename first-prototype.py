@@ -50,18 +50,20 @@ def main():
     remaining_messages = CONVERSATION_LENGTH
 
     # Model names for the two speakers
-    model1 = 'llama3-70b-8192'  # The model the first speaker will use
-    model2 = 'llama3-70b-8192'  # The model the second speaker will use
+    model1 = 'llama-3.3-70b-Specdec'  # The model the first speaker will use
+    model2 = 'llama-3.3-70b-Specdec'  # The model the second speaker will use
 
     # AVAILABLE MODELS
     # LLAMA (META)
+    # llama-3.3-70b-Specdec <- Fine
+    # llama-3.3-70b-versatile <- Fine
     # llama-3.1-70b-versatile  <- Insists on roleplaying
     # llama-3.1-8b-instant  <- Fine
-    # llama-3.2-11b-text-preview  <- Fine
+    # llama-3.2-11b-text-preview  // DECOMISIONED
     # llama-3.2-11b-vision-preview  <- Fine
     # llama-3.2-1b-preview  <- Insists on roleplaying
     # llama-3.2-3b-preview  <- Fine
-    # llama-3.2-90b-text-preview  <- Fine but needs longer waits
+    # llama-3.2-90b-text-preview  // DECOMISIONED
     # llama-3.2-90b-vision-preview  <- It insists on roleplaying (longer messages as conversation progresses)
     # llama-guard-3-8b  <- Checks if messages are "safe" but doesn't generate text by itself
     # llama3-70b-8192  <- Fine

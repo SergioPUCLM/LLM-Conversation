@@ -1,60 +1,59 @@
 import socket
 import json
 import groq
+import os
+from dotenv import load_dotenv
 
-CONVERSATION_LENGTH = 15
-CONVERSATION_TEMPERATURE = 0.5
-SLEEP_TIME = 1
-CONVINCE_TIME = 4
-CONVINCE_TIME_DEFINITIVE = 2
-FREQUENCY_PENALTY = 0.5
-PRESENCE_PENALTY = 0.8
+#TODO: These constants should be sent by the server, where everything is configured
+CONVERSATION_LENGTH = 15  # Number of messages the conversation will last
+CONVERSATION_TEMPERATURE = 0.5  # Temperature (0 - 2)
+SLEEP_TIME = 1  # Time to wait between messages
+CONVINCE_TIME = 4  # Turns to start convince the other
+CONVINCE_TIME_DEFINITIVE = 2  # Turns to convince the other fully
+FREQUENCY_PENALTY = 0.5  # Avoid repeating the same words (0 - 2)
+PRESENCE_PENALTY = 0.8  # Avoid repeating the same arguments (0 - 2)
 
-API_KEY_2 = open('api-key1.txt', 'r').read().strip()
+load_dotenv()  # Load the environment variables
+client = groq.Groq(api_key=os.getenv('API_KEY_1'))
 
-client = groq.Groq(api_key=API_KEY_2)
 
 def generate_response(client, model,messages):
+    """
+    Generate a response from the model given the messages.
+    Attributes:
+    - client: Groq client
+    - model: model name
+    - messages: list of messages
+    """
     chat_completion = client.chat.completions.create(
-        messages=messages,
-        model=model,
-        temperature=CONVERSATION_TEMPERATURE,
-        frequency_penalty=FREQUENCY_PENALTY,
-        presence_penalty=PRESENCE_PENALTY,
+        messages=messages,  # List of messages
+        model=model,  # Model name
+        temperature=CONVERSATION_TEMPERATURE,  # Temperature (0 - 2)
+        frequency_penalty=FREQUENCY_PENALTY,  # Avoid repeating the same words (0 - 2)
+        presence_penalty=PRESENCE_PENALTY,  # Avoid repeating the same arguments (0 - 2)
     )
     return chat_completion.choices[0].message.content
 
-def generate_name(client, model, blacklisted=None):
-    if blacklisted is None:
-        prompt = 'Give yoursef a SINGLE WORD spanish name. Do not simulate a response, I just need a name.'
-    else:
-        prompt = f'Give yoursef a SINGLE WORD spanish name that is not {blacklisted}. Do not simulate a response, I just need a name.'
-    
-    messages = [{"role": "user", "content": prompt}]
-    name = generate_response(client, model,messages)
-    name = name.replace('\n', '')
-    name = ''.join(e for e in name if e.isalnum())
-    return name
-
 
 def main():
-
-    HOST = 'localhost'  
+    HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
     PORT = 4670        
 
     try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((HOST, PORT))
-        print(f"Conectado al servidor en {HOST}:{PORT}")
+        # ============ CONNECTION PHASE ============
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create a socket object
+        client_socket.connect((HOST, PORT))  # Connect to the server
+        print(f"Conectado al servidor en {HOST}:{PORT}")  # Print the connection message
        
         client_socket.sendall("Iniciame".encode('utf-8'))
         print("Mensaje enviado: Iniciame")
 
-        data = client_socket.recv(1024)
+        # ============ CONFIGURATION PHASE ============
+        data = client_socket.recv(1024)  # Receive the data from the server
         
         data_js = json.loads(data.decode('utf-8'))
         config = data_js['configuration']
-        mess   = data_js['message']
+        mess = data_js['message']
         
         print("\n📡 Configuración inicial recibida del servidor:")
         print(json.dumps(mess, indent=4))
@@ -62,21 +61,21 @@ def main():
         client_socket.sendall("Estoy listo".encode('utf-8'))
         print("\nMensaje enviado: Estoy listo")
         
-        model = config['model']
-        topic = config['topic']
-        personality = config['personality']
-        name = config['name']
+        model = config['model']  # Model to use
+        topic = config['topic']  # Topic of the conversation
+        personality = config['personality']  # Personality of the client
+        name = config['name']  # Name of the client
 
-        data = client_socket.recv(1024).decode('utf-8')
+        data = client_socket.recv(1024).decode('utf-8')  
         serer_msg = json.loads(data)
-        print(f"Server ({serer_msg['name']}) said: {serer_msg['message']}")
+        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
         print('-' * 50)
 
         messages = [{"role": "system", "content":personality},
                     {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
         
         response = generate_response(client, model, messages )
-        print(f"Client ({name}):", response)
+        print(f"Cliente ({name}):", response)
         print('-' * 50)
 
         messages.append({"role": "assistant", "content": response})
@@ -90,11 +89,11 @@ def main():
         while True:
             data = client_socket.recv(1024).decode('utf-8')
             client_msg = json.loads(data)
-            print(f"Server ({client_msg['name']}) said: {client_msg['message']}")
+            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
             print('-' * 50)
             messages = [{"role": "user", "content": client_msg['message']+topic}]
             response = generate_response(client, model, messages)
-            print(f"Client ({name}):", response)
+            print(f"Cliente ({name}):", response)
             print('-' * 50)
             messages.append({"role": "assistant", "content": response})
             message_to_server = {
@@ -110,7 +109,7 @@ def main():
     except  json.JSONDecodeError:
         print("\n Hubo un error en la comunicación con el servidor")
     except Exception as e:
-        print("\n Hubo un error:", e)
+        print("\nHubo un error:", e)
     finally:
         client_socket.close()
         print("Conexión cerrada.")
