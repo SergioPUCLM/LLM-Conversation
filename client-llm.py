@@ -58,39 +58,40 @@ def main():
         # ============ CONNECTION PHASE ============
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create a socket object
         client_socket.connect((HOST, PORT))  # Connect to the server
-        print(f"Conectado al servidor en {HOST}:{PORT}")  # Print the connection message
+        print(f"Conectado al servidor en {HOST}:{PORT}")
        
-        client_socket.sendall("Iniciame".encode('utf-8'))
+        client_socket.sendall("Iniciame".encode('utf-8'))  # Send a request to be initialized
         print("Mensaje enviado: Iniciame")
 
         # ============ CONFIGURATION PHASE ============
-        data = client_socket.recv(1024)  # Receive the data from the server
+        data = client_socket.recv(1024)  # Receive the config from the server
         
-        data_js = json.loads(data.decode('utf-8'))
+        data_js = json.loads(data.decode('utf-8'))  # Parse the configuration
         config = data_js['configuration']
         mess = data_js['message']
         
         print("\n📡 Configuración inicial recibida del servidor:")
-        print(json.dumps(mess, indent=4))  # Print the configuration
+        print(json.dumps(mess, indent=4))  # Print the message contained in the configuration
         
-        client_socket.sendall("Estoy listo".encode('utf-8'))  # Send a message to the server informing that the client is ready
+        client_socket.sendall("Estoy listo".encode('utf-8'))  # Send a message to the server informing that we are ready
         print("\nMensaje enviado: Estoy listo")
         
+        # Set the configuration variables
         model = config['model']  # Model to use
         topic = config['topic']  # Topic of the conversation
         personality = config['personality']  # Personality of the client
         name = config['name']  # Name of the client
 
         # ============ GREETING PHASE ============
-        data = recv_all(client_socket).decode('utf-8')  # Receive the data from the server
+        data = recv_all(client_socket).decode('utf-8')  # Receive the greeting from the server
         serer_msg = json.loads(data)  # Parse the data
-        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")  # Print the message
+        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
         print('-' * 50)  
 
         messages = [{"role": "system", "content":personality},
                     {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
         
-        response = generate_response(client, model, messages)  # Generate a response
+        response = generate_response(client, model, messages)  # Generate a response from the model
         print(f"Cliente ({name}):", response)
         print('-' * 50)
 
@@ -104,12 +105,12 @@ def main():
 
         # ============ CONVERSATION PHASE ============
         while True:
-            data = recv_all(client_socket).decode('utf-8')  # Receive the data from the server
+            data = recv_all(client_socket).decode('utf-8')  # Receive the message from the server
             client_msg = json.loads(data)  # Parse the data
-            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")  # Print the message
+            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
             print('-' * 50)
             messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
-            response = generate_response(client, model, messages)
+            response = generate_response(client, model, messages)  # Generate a response from the model
             print(f"Cliente ({name}):", response)
             print('-' * 50)
             messages.append({"role": "assistant", "content": response})  # Append the response to the messages
@@ -119,14 +120,14 @@ def main():
             }
             client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
 
-    except ConnectionRefusedError:
-        print("Error: No se pudo conectar al servidor. ¿Está en línea?")
-    except KeyboardInterrupt:
-        print("\nCerrando el cliente manualmente.")
-    except  json.JSONDecodeError:
-        print("\n Hubo un error en la comunicación con el servidor")
-    except Exception as e:
-        print("\nHubo un error:", e)
+    except ConnectionRefusedError:  # Handle connection error
+        print("Error: No se pudo conectar al servidor. Asegurate de que el servidor esta en linea y la wifi no es eduroam.")
+    except KeyboardInterrupt:  # Handle keyboard interruption
+        print("\nSe ha cerrado el cliente manualmente.")
+    except  json.JSONDecodeError:  # Handle JSON decoding error
+        print("\nSe ha producido un error en la comunicación con el servidor")
+    except Exception as e:  # Handle any other exception
+        print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
         print("Conexión cerrada.")

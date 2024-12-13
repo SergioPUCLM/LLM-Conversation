@@ -113,11 +113,11 @@ def main():
 
     # ============ CONFIGURATION PHASE ============
     try:
-        print(f"Conexión establecida con {addr}")
-        data = recv_all(conn).decode('utf-8')
+        print(f"Conexión establecida con {addr}") 
+        data = recv_all(conn).decode('utf-8')  # Receive petition to be initialized
         
-        if data== "Iniciame":
-            datos_iniciales = {
+        if data== "Iniciame":  # Check the petition
+            datos_iniciales = {  # Send the initial configuration to the client
                 "message": "Bienvenido al servidor",
                 "configuration": {
                     "model": model2,
@@ -127,16 +127,15 @@ def main():
                 }
             }
             
-            json_datos = json.dumps(datos_iniciales)
-            
-            conn.sendall(json_datos.encode('utf-8'))
+            json_datos = json.dumps(datos_iniciales)  # Pack into a json object
+            conn.sendall(json_datos.encode('utf-8'))  # Send the config to the client
 
-        data = recv_all(conn).decode('utf-8')
-        if data != "Estoy listo":
+        data = recv_all(conn).decode('utf-8')  # Receive the confirmation message from the client that config was received
+        if data != "Estoy listo":  # Check the confirmation
             print("Error: No se reconoce el comando")
             sys.exit()
         
-        # INITIALIZE CONVERSATION
+        # ============ GREETING PHASE ============
         start_message = 'Expresa claramente tu creencia y posición sobre el tema en una sola frase clara. Este es el \
                         inicio de la conversación, por lo que no puedes hacer referencia a interacciones \
                         o argumentos pasados. No incluyas ejemplos o más elaboración.'
@@ -156,9 +155,9 @@ def main():
         print(f"Model 1 ({model1_name}):", response)
         print('-' * 50)
 
-        messages.append({"role": "assistant", "content": response})
+        messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
-        remaining_messages -= 1
+        remaining_messages -= 1  # Decrease the remaining messages
 
         conn.sendall(json.dumps({
                 'name': model1_name,
@@ -167,36 +166,36 @@ def main():
         
 
         # ============ CONVERSATION PHASE ============
-        while True:
+        while remaining_messages > 0:  # Loop to keep the conversation going
             data = recv_all(conn).decode('utf-8')  # Receive mesage from the client
             client_msg = json.loads(data)
 
             print(f"Cliente ({client_msg['name']}) dice: {client_msg['message']}")
             print('-' * 50)
 
-            messages = [{"role": "user", "content": client_msg['message']+ topic}]
+            messages = [{"role": "user", "content": client_msg['message']+ topic}]  # Create a message to send to the model
 
-            response = generate_response(client, model1, messages)
+            response = generate_response(client, model1, messages)  # Generate a response
             print(f"Server ({model1_name}):", response)
             print('-' * 50)
 
-            messages.append({"role": "assistant", "content": response})
+            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
             remaining_messages -= 1
 
-            conn.sendall(json.dumps({
+            conn.sendall(json.dumps({  # Send the response to the client
                 'name': model1_name,
                 'message': response
             }).encode('utf-8')) 
 
-            if remaining_messages < 5:
+            if remaining_messages < 5:#FIXME: Conversation needs to start dying out in this point
                 break
-    except KeyboardInterrupt:
-        print("\nServidor cerrado manualmente.")
-    except  json.JSONDecodeError:
-        print("\nHubo un error en la comunicación con el cliente")
-    except Exception as e:
-        print("\nHubo un error:", e)
-    finally:
+    except KeyboardInterrupt:  # Handle the keyboard interruption
+        print("\nSe ha cerrado el servidor manualmente.")
+    except  json.JSONDecodeError:  # Handle JSON decoding error
+        print("\nSe ha producido un error en la comunicación con el servidor")
+    except Exception as e:  # Handle any other exception
+        print("\nSe ha producido un error inesperado:", e)
+    finally:  # Close the connection
         conn.close()
         server_socket.close()
 
