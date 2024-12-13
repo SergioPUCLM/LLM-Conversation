@@ -70,6 +70,21 @@ def init_server():
     return server_socket
 
 
+def recv_all(conn):
+    """
+    Receive all the data from the client.
+    Attributes:
+    - conn: connection object
+    """
+    data = b''
+    while True:  # Loop to receive all the data
+        part = conn.recv(1024)
+        data += part  # Append the data
+        if len(part) < 1024:  # If the data is less than 1024 bytes, it means that there is no more data to receive
+            break
+    return data
+
+
 def main():
     remaining_messages = CONVERSATION_LENGTH
     model1 = 'llama3-70b-8192'  # Model for server
@@ -105,7 +120,7 @@ def main():
     # ============ CONFIGURATION PHASE ============
     try:
         print(f"Conexión establecida con {addr}")
-        data = conn.recv(1024).decode('utf-8')
+        data = recv_all(conn).decode('utf-8')
         
         if data== "Iniciame":
             datos_iniciales = {
@@ -122,7 +137,7 @@ def main():
             
             conn.sendall(json_datos.encode('utf-8'))
 
-        data = conn.recv(1024).decode('utf-8')
+        data = recv_all(conn).decode('utf-8')
         if data != "Estoy listo":
             print("Error: No se reconoce el comando")
             sys.exit()
@@ -138,7 +153,6 @@ def main():
         prompt = f"Context: 'Este es el primer mensaje de la conversación' \
                 \nTema: {topic}\
                 \nInstructiones: {start_message}\nTu opinión:"
-
 
         messages = [{"role": "system", "content":model1_personality},
                     {"role": "user", "content": prompt}]
@@ -158,8 +172,9 @@ def main():
             }).encode('utf-8'))
         
 
+        # ============ CONVERSATION PHASE ============
         while True:
-            data = conn.recv(1024).decode('utf-8')
+            data = recv_all(conn).decode('utf-8')  # Receive mesage from the client
             client_msg = json.loads(data)
 
             print(f"Cliente ({client_msg['name']}) dice: {client_msg['message']}")

@@ -35,6 +35,21 @@ def generate_response(client, model,messages):
     return chat_completion.choices[0].message.content
 
 
+def recv_all(conn):
+    """
+    Receive all the data from the client.
+    Attributes:
+    - conn: connection object
+    """
+    data = b''
+    while True:  # Loop to receive all the data
+        part = conn.recv(1024)
+        data += part  # Append the data
+        if len(part) < 1024:  # If the data is less than 1024 bytes, it means that there is no more data to receive
+            break
+    return data
+
+
 def main():
     HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
     PORT = 4670        
@@ -56,9 +71,9 @@ def main():
         mess = data_js['message']
         
         print("\n📡 Configuración inicial recibida del servidor:")
-        print(json.dumps(mess, indent=4))
+        print(json.dumps(mess, indent=4))  # Print the configuration
         
-        client_socket.sendall("Estoy listo".encode('utf-8'))
+        client_socket.sendall("Estoy listo".encode('utf-8'))  # Send a message to the server informing that the client is ready
         print("\nMensaje enviado: Estoy listo")
         
         model = config['model']  # Model to use
@@ -66,41 +81,43 @@ def main():
         personality = config['personality']  # Personality of the client
         name = config['name']  # Name of the client
 
-        data = client_socket.recv(1024).decode('utf-8')  
-        serer_msg = json.loads(data)
-        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
-        print('-' * 50)
+        # ============ GREETING PHASE ============
+        data = recv_all(client_socket).decode('utf-8')  # Receive the data from the server
+        serer_msg = json.loads(data)  # Parse the data
+        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")  # Print the message
+        print('-' * 50)  
 
         messages = [{"role": "system", "content":personality},
                     {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
         
-        response = generate_response(client, model, messages )
+        response = generate_response(client, model, messages)  # Generate a response
         print(f"Cliente ({name}):", response)
         print('-' * 50)
 
-        messages.append({"role": "assistant", "content": response})
+        messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
-        message_to_server = {
+        message_to_server = {  # Create a message to send to the server
             'name': name,
             'message': response
-        }
-        client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))
+        }  
+        client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
 
+        # ============ CONVERSATION PHASE ============
         while True:
-            data = client_socket.recv(1024).decode('utf-8')
-            client_msg = json.loads(data)
-            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
+            data = recv_all(client_socket).decode('utf-8')  # Receive the data from the server
+            client_msg = json.loads(data)  # Parse the data
+            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")  # Print the message
             print('-' * 50)
-            messages = [{"role": "user", "content": client_msg['message']+topic}]
+            messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
             response = generate_response(client, model, messages)
             print(f"Cliente ({name}):", response)
             print('-' * 50)
-            messages.append({"role": "assistant", "content": response})
-            message_to_server = {
+            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+            message_to_server = {  # Create a message to send to the server
                 'name': name,
                 'message': response
             }
-            client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))
+            client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
 
     except ConnectionRefusedError:
         print("Error: No se pudo conectar al servidor. ¿Está en línea?")
