@@ -91,20 +91,19 @@ def main():
     user_topic = '¿Crees que es posible viajar en el tiempo?'
 
     # Personalities and opinions
-    model1_opinion = 'Crees que los viajes en el tiempo son reales y de hecho estás convencido \
-        de que eres un viajero del tiempo.'
-    model2_opinion = 'No crees en los viajes en el tiempo y de hecho piensas que las personas que lo hacen \
-        sufren de algún tipo de trastorno mental.'
+    model1_opinion = 'Crees que los viajes en el tiempo son reales y de hecho estás convencido de que eres un viajero del tiempo.'
+    model2_opinion = 'No crees en los viajes en el tiempo y de hecho piensas que las personas que lo hacen sufren de algún tipo de trastorno mental.'
     model1_personality = f'{model1_opinion} Inventate argumentos y datos para defender tu opinión.'
     model2_personality = f'{model2_opinion} Muestra datos reales y argumentos para defender tu opinión.'
 
-    topic = f'Con tus propios metodos, convince me of your opinion on: {user_topic}. \
-        Keep responses to a single phrase. Do not repeat arguments. \
-        NOT SAY THE NUMBER OF THE ARGUMENT. \
-        Do not engage in roleplay. If you are told to be convinced, act accordingly.'
+    topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Manten tus respuestas a una sola frase. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural.'
+
+    start_message = f'Expresa claramente tu creencia y posicion sobre el tema en una sola frase clara. Este es el inicio de la conversacion, por lo que no puedes hacer referencia a interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
  
     model1_name = generate_name(client, model1)  # Generate a name for the server model
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
+
+    starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
 
     # ============ CONNECTION PHASE ============
     server_socket = init_server()
@@ -123,12 +122,14 @@ def main():
                     "topic": topic,
                     "personality": model2_personality,
                     "name": model2_name,
+                    "starting_model": starting_model,
                     "conversation_length": CONVERSATION_LENGTH,
                     "conversation_temperature": CONVERSATION_TEMPERATURE,
                     "convince_time": CONVINCE_TIME,
                     "convince_time_definitive": CONVINCE_TIME_DEFINITIVE,
                     "frequency_penalty": FREQUENCY_PENALTY,
-                    "presence_penalty": PRESENCE_PENALTY
+                    "presence_penalty": PRESENCE_PENALTY,
+                    "start_message": start_message
                 }
             }
             
@@ -141,33 +142,32 @@ def main():
             sys.exit()
         
         # ============ GREETING PHASE ============
-        start_message = 'Expresa claramente tu creencia y posición sobre el tema en una sola frase clara. Este es el \
-                        inicio de la conversación, por lo que no puedes hacer referencia a interacciones \
-                        o argumentos pasados. No incluyas ejemplos o más elaboración.'
-
         print('Tema: ', topic)
         print('-' * 50)
         
-        prompt = f"Context: 'Este es el primer mensaje de la conversación' \
-                \nTema: {topic}\
-                \nInstructiones: {start_message}\nTu opinión:"
+        if starting_model == 0: # We start (Send a greeting to client)
+            prompt = f"Context: 'Este es el primer mensaje de la conversación' \
+                    \nTema: {topic}\
+                    \nInstructiones: {start_message}\nTu opinión:"
 
-        messages = [{"role": "system", "content":model1_personality},
-                    {"role": "user", "content": prompt}]
-        
-        response = generate_response(client, model1, messages )
+            messages = [{"role": "system", "content":model1_personality},
+                        {"role": "user", "content": prompt}]
+            
+            response = generate_response(client, model1, messages )
 
-        print(f"Model 1 ({model1_name}):", response)
-        print('-' * 50)
+            print(f"Server ({model1_name}) dice:", response)
+            print('-' * 50)
 
-        messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
-        remaining_messages -= 1  # Decrease the remaining messages
+            remaining_messages -= 1  # Decrease the remaining messages
 
-        conn.sendall(json.dumps({
-                'name': model1_name,
-                'message': response
-            }).encode('utf-8'))
+            conn.sendall(json.dumps({  # Send the greeting to the client
+                    'name': model1_name,
+                    'message': response
+                }).encode('utf-8'))
+
+        # No else case. If we start, the client will have to send a message outside of the loop to compensate    
         
 
         # ============ CONVERSATION PHASE ============

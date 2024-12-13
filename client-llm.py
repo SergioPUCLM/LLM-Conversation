@@ -45,6 +45,7 @@ def recv_all(conn):
         data += part  # Append the data
         if len(part) < 1024:  # If the data is less than 1024 bytes, it means that there is no more data to receive
             break
+    # Print raw data
     return data
 
 
@@ -82,7 +83,7 @@ def main():
         print("Mensaje enviado: Iniciame")
 
         # ============ CONFIGURATION PHASE ============
-        data = client_socket.recv(1024)  # Receive the config from the server
+        data = recv_all(client_socket)  # Receive the config from the server
         
         data_js = json.loads(data.decode('utf-8'))  # Parse the configuration
         config = data_js['configuration']
@@ -99,28 +100,49 @@ def main():
         topic = config['topic']  # Topic of the conversation
         personality = config['personality']  # Personality of the client
         name = config['name']  # Name of the client
+        starting_model = config['starting_model']  # Starting model
         set_globals(config)  # Set the global variables with the configuration
+        start_message = config['start_message']  # Start message
 
         # ============ GREETING PHASE ============
-        data = recv_all(client_socket).decode('utf-8')  # Receive the greeting from the server
-        serer_msg = json.loads(data)  # Parse the data
-        print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
-        print('-' * 50)  
+        if starting_model == 0:  # 0 = Server starts, 1 = Client starts
+            data = recv_all(client_socket).decode('utf-8')  # Receive the greeting from the server (STEP1: RECIVE)
+            serer_msg = json.loads(data)  # Parse the data
+            print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
+            print('-' * 50)  
 
-        messages = [{"role": "system", "content":personality},
-                    {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
-        
-        response = generate_response(client, model, messages)  # Generate a response from the model
-        print(f"Cliente ({name}):", response)
-        print('-' * 50)
+            messages = [{"role": "system", "content":personality},
+                        {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
+            
+            response = generate_response(client, model, messages)  # Generate a response from the model
+            print(f"Cliente ({name}):", response)
+            print('-' * 50)
 
-        messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
-        message_to_server = {  # Create a message to send to the server
-            'name': name,
-            'message': response
-        }  
-        client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
+            message_to_server = {  # Create a message to send to the server
+                'name': name,
+                'message': response
+            }  
+            client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server  (STEP2: SEND)
+        else: # We start (Send a greeting to server)
+            prompt = f"Context: 'Este es el primer mensaje de la conversación' \
+                    \nTema: {topic}\
+                    \nInstructiones: {start_message}\nTu opinión:"
+
+            messages = [{"role": "system", "content":personality},
+                        {"role": "user", "content": prompt}]
+
+            response = generate_response(client, model, messages)  # Generate a response from the model
+            print(f"Cliente ({name}) dice:", response)
+            print('-' * 50)
+
+            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+
+            client_socket.sendall(json.dumps({  # Send the response to the client  (STEP1: SEND)
+                'name': name,
+                'message': response
+            }).encode('utf-8'))
 
         # ============ CONVERSATION PHASE ============
         while True:
@@ -145,7 +167,7 @@ def main():
         print("\nSe ha cerrado el cliente manualmente.")
     except  json.JSONDecodeError:  # Handle JSON decoding error
         print("\nSe ha producido un error en la comunicación con el servidor")
-    #except Exception as e:  # Handle any other exception
+    except Exception as e:  # Handle any other exception
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
