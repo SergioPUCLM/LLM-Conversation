@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 CONVERSATION_LENGTH = 15  # Number of messages the conversation will last
 CONVERSATION_TEMPERATURE = 0.5  # Temperature (0 - 2)
-SLEEP_TIME = 1  # Time to wait between messages
 CONVINCE_TIME = 4  # Turns to start convince the other
 CONVINCE_TIME_DEFINITIVE = 2  # Turns to convince the other fully
 FREQUENCY_PENALTY = 0.5  # Avoid repeating the same words (0 - 2)
@@ -123,7 +122,13 @@ def main():
                     "model": model2,
                     "topic": topic,
                     "personality": model2_personality,
-                    "name": model2_name
+                    "name": model2_name,
+                    "conversation_length": CONVERSATION_LENGTH,
+                    "conversation_temperature": CONVERSATION_TEMPERATURE,
+                    "convince_time": CONVINCE_TIME,
+                    "convince_time_definitive": CONVINCE_TIME_DEFINITIVE,
+                    "frequency_penalty": FREQUENCY_PENALTY,
+                    "presence_penalty": PRESENCE_PENALTY
                 }
             }
             

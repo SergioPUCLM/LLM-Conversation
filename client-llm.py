@@ -4,14 +4,12 @@ import groq
 import os
 from dotenv import load_dotenv
 
-#TODO: These constants should be sent by the server, where everything is configured
-CONVERSATION_LENGTH = 15  # Number of messages the conversation will last
-CONVERSATION_TEMPERATURE = 0.5  # Temperature (0 - 2)
-SLEEP_TIME = 1  # Time to wait between messages
-CONVINCE_TIME = 4  # Turns to start convince the other
-CONVINCE_TIME_DEFINITIVE = 2  # Turns to convince the other fully
-FREQUENCY_PENALTY = 0.5  # Avoid repeating the same words (0 - 2)
-PRESENCE_PENALTY = 0.8  # Avoid repeating the same arguments (0 - 2)
+CONVERSATION_LENGTH = None
+CONVERSATION_TEMPERATURE = None
+CONVINCE_TIME = None
+CONVINCE_TIME_DEFINITIVE = None
+FREQUENCY_PENALTY = None
+PRESENCE_PENALTY = None
 
 load_dotenv()  # Load the environment variables
 client = groq.Groq(api_key=os.getenv('API_KEY_1'))
@@ -50,6 +48,26 @@ def recv_all(conn):
     return data
 
 
+def set_globals(config):
+    """
+    Set the global variables with the configuration received from the server.
+    Attributes:
+    - config: configuration dictionary (already parsed)
+    """
+    global CONVERSATION_LENGTH
+    global CONVERSATION_TEMPERATURE
+    global CONVINCE_TIME
+    global CONVINCE_TIME_DEFINITIVE
+    global FREQUENCY_PENALTY
+    global PRESENCE_PENALTY
+    CONVERSATION_LENGTH = config['conversation_length']
+    CONVERSATION_TEMPERATURE = config['conversation_temperature']
+    CONVINCE_TIME = config['convince_time']
+    CONVINCE_TIME_DEFINITIVE = config['convince_time_definitive']
+    FREQUENCY_PENALTY = config['frequency_penalty']
+    PRESENCE_PENALTY = config['presence_penalty']
+
+
 def main():
     HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
     PORT = 4670        
@@ -81,6 +99,7 @@ def main():
         topic = config['topic']  # Topic of the conversation
         personality = config['personality']  # Personality of the client
         name = config['name']  # Name of the client
+        set_globals(config)  # Set the global variables with the configuration
 
         # ============ GREETING PHASE ============
         data = recv_all(client_socket).decode('utf-8')  # Receive the greeting from the server
@@ -126,7 +145,7 @@ def main():
         print("\nSe ha cerrado el cliente manualmente.")
     except  json.JSONDecodeError:  # Handle JSON decoding error
         print("\nSe ha producido un error en la comunicación con el servidor")
-    except Exception as e:  # Handle any other exception
+    #except Exception as e:  # Handle any other exception
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
