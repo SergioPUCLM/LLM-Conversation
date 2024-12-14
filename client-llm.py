@@ -4,10 +4,7 @@ import groq
 import os
 from dotenv import load_dotenv
 
-CONVERSATION_LENGTH = None
 CONVERSATION_TEMPERATURE = None
-CONVINCE_TIME = None
-CONVINCE_TIME_DEFINITIVE = None
 FREQUENCY_PENALTY = None
 PRESENCE_PENALTY = None
 
@@ -55,16 +52,10 @@ def set_globals(config):
     Attributes:
     - config: configuration dictionary (already parsed)
     """
-    global CONVERSATION_LENGTH
     global CONVERSATION_TEMPERATURE
-    global CONVINCE_TIME
-    global CONVINCE_TIME_DEFINITIVE
     global FREQUENCY_PENALTY
     global PRESENCE_PENALTY
-    CONVERSATION_LENGTH = config['conversation_length']
     CONVERSATION_TEMPERATURE = config['conversation_temperature']
-    CONVINCE_TIME = config['convince_time']
-    CONVINCE_TIME_DEFINITIVE = config['convince_time_definitive']
     FREQUENCY_PENALTY = config['frequency_penalty']
     PRESENCE_PENALTY = config['presence_penalty']
 
@@ -148,18 +139,24 @@ def main():
         while True:
             data = recv_all(client_socket).decode('utf-8')  # Receive the message from the server
             client_msg = json.loads(data)  # Parse the data
-            print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
-            print('-' * 50)
-            messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
-            response = generate_response(client, model, messages)  # Generate a response from the model
-            print(f"Cliente ({name}):", response)
-            print('-' * 50)
-            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
-            message_to_server = {  # Create a message to send to the server
-                'name': name,
-                'message': response
-            }
-            client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
+
+            if client_msg['name'] == "system": # If we recieve a system message, change personality
+                personality = client_msg['message']
+                print("PERSONALITY CHANGED")
+            
+            else:  # If not, continue with the conversation
+                print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
+                print('-' * 50)
+                messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
+                response = generate_response(client, model, messages)  # Generate a response from the model
+                print(f"Cliente ({name}):", response)
+                print('-' * 50)
+                messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+                message_to_server = {  # Create a message to send to the server
+                    'name': name,
+                    'message': response
+                }
+                client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
 
     except ConnectionRefusedError:  # Handle connection error
         print("Error: No se pudo conectar al servidor. Asegurate de que el servidor esta en linea y la wifi no es eduroam.")

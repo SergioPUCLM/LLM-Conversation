@@ -25,6 +25,8 @@ def generate_response(client, model,messages):
     - client: Groq client
     - model: model name
     - messages: list of messages
+    Outputs:
+    - response: generated response
     """
     chat_completion = client.chat.completions.create(
         messages=messages,  # List of messages
@@ -43,6 +45,8 @@ def generate_name(client, model, blacklisted=None):
     - client: Groq client
     - model: model that will generate the name
     - blacklisted: name to avoid (if specified)
+    Outputs:
+    - name: generated name
     """
     if blacklisted is None:
         prompt = 'Date un nombre en español de UNA SOLA PALABRA. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
@@ -74,6 +78,8 @@ def recv_all(conn):
     Receive all the data from the client.
     Attributes:
     - conn: connection object
+    Outputs:
+    - data: received data
     """
     data = b''
     while True:  # Loop to receive all the data
@@ -83,6 +89,43 @@ def recv_all(conn):
             break
     return data
 
+
+def check_personality_change(winner, messages_left, conn, model1_personality, model2_personality, model1_opinion, model2_opinion):
+    """
+    Check if a personality change is needed.
+    Attributes:
+    - winner: winner of the debate
+    - messages_left: remaining messages
+    - conn: connection object
+    - model1_personality: original personality of the server
+    - model2_personality: original personality of the client
+    - model1_opinion: original opinion of the server
+    - model2_opinion: original opinion of the client
+    Outputs:
+    - model1_new_personality: new personality for the server if it was changed, None otherwise
+    """
+    model1_new_personality = None
+    model2_new_personality = None
+    if messages_left == CONVINCE_TIME:  # Halfway through convincing
+        print("DEBUG: SOMEONE HALF CONVINCED")
+        if winner == 0:  # Server wins, convince the client (halfway)
+            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
+        else:  # Client wins, convince the server (halfway)
+            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
+    elif messages_left == CONVINCE_TIME_DEFINITIVE:  # Fully convinced
+        print("DEBUG: SOMEONE FULLY CONVINCED")
+        if winner == 0:  # Server wins, convince the client (fully)
+            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano."
+        else:  # Client wins, convince the server (fully)
+            model1_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano."
+
+    if model2_new_personality is not None:
+        conn.sendall(json.dumps({  # Send the new personality to the client
+            'name': "system",  # Client reconizes system messages as petitions to change personality
+            'message': model2_new_personality
+        }).encode('utf-8'))
+    return model1_new_personality
+    
 
 def main():
     remaining_messages = CONVERSATION_LENGTH
@@ -96,7 +139,7 @@ def main():
     model1_personality = f'{model1_opinion} Inventate argumentos y datos para defender tu opinión.'
     model2_personality = f'{model2_opinion} Muestra datos reales y argumentos para defender tu opinión.'
 
-    topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Manten tus respuestas a una sola frase. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural.'
+    topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Muy importante, tus argumentos deben ser breves y concisos, de una oración como mucho. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural. Comunica un solo argumento o idea por mensaje para que la conversación sea clara y efectiva.'
 
     start_message = f'Expresa claramente tu creencia y posicion sobre el tema en una sola frase clara. Este es el inicio de la conversacion, por lo que no puedes hacer referencia a interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
  
@@ -104,6 +147,7 @@ def main():
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
+    winner = random.choice([0, 1])  # What model "wins" the debate (0 = Server, 1 = Client)
 
     # ============ CONNECTION PHASE ============
     server_socket = init_server()
@@ -123,10 +167,7 @@ def main():
                     "personality": model2_personality,
                     "name": model2_name,
                     "starting_model": starting_model,
-                    "conversation_length": CONVERSATION_LENGTH,
                     "conversation_temperature": CONVERSATION_TEMPERATURE,
-                    "convince_time": CONVINCE_TIME,
-                    "convince_time_definitive": CONVINCE_TIME_DEFINITIVE,
                     "frequency_penalty": FREQUENCY_PENALTY,
                     "presence_penalty": PRESENCE_PENALTY,
                     "start_message": start_message
@@ -158,7 +199,7 @@ def main():
             print(f"Server ({model1_name}) dice:", response)
             print('-' * 50)
 
-            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
+            messages.append({"role": "assistant", "content": response})  # Append the response to the message history
 
             remaining_messages -= 1  # Decrease the remaining messages
 
@@ -166,34 +207,51 @@ def main():
                     'name': model1_name,
                     'message': response
                 }).encode('utf-8'))
-
         # No else case. If we start, the client will have to send a message outside of the loop to compensate    
         
 
         # ============ CONVERSATION PHASE ============
-        while remaining_messages > 0:  # Loop to keep the conversation going
-            data = recv_all(conn).decode('utf-8')  # Receive mesage from the client
-            client_msg = json.loads(data)
+        while True:  # Loop to keep the conversation going
+            # Message count checks
+            remaining_messages -= 1
+            if remaining_messages <= 0:  # If we are out of messages, break the loop
+                break
+            new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
+            if new_personality is not None:  # If we need to change the personality, do so
+                model1_personality = new_personality
+            print(f"Messages left: {remaining_messages}")
 
+
+            # Revieve the message from the client
+            data = recv_all(conn).decode('utf-8')
+            client_msg = json.loads(data) 
             print(f"Cliente ({client_msg['name']}) dice: {client_msg['message']}")
             print('-' * 50)
 
-            messages = [{"role": "user", "content": client_msg['message']+ topic}]  # Create a message to send to the model
 
+            # Message count checks
+            remaining_messages -= 1
+            if remaining_messages <= 0:  # If we are out of messages, break the loop
+                break
+            new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
+            if new_personality is not None:  # If we need to change the personality, do so
+                model1_personality = new_personality
+            print(f"Messages left: {remaining_messages}")
+
+
+            # Send a message to the client
+            messages = [{"role": "user", "content": client_msg['message']+ topic}]  # Create a message to send to the model
             response = generate_response(client, model1, messages)  # Generate a response
             print(f"Server ({model1_name}):", response)
             print('-' * 50)
-
-            messages.append({"role": "assistant", "content": response})  # Append the response to the messages
-            remaining_messages -= 1
-
+            messages.append({"role": "assistant", "content": response})  # Append the response to the message history
             conn.sendall(json.dumps({  # Send the response to the client
                 'name': model1_name,
                 'message': response
-            }).encode('utf-8')) 
+            }).encode('utf-8'))      
+        print("CONVERSATION ENDED")
 
-            if remaining_messages < 5:#FIXME: Conversation needs to start dying out in this point
-                break
+
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
     except  json.JSONDecodeError:  # Handle JSON decoding error
