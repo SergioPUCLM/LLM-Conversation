@@ -1,38 +1,32 @@
 import wave
 import struct
-from pvrecorder import PvRecorder
+import keyboard
+from pvrecorder import PvRecorder 
+import time
 
-# Prototipo para captar el audio desde python a tiempo real
 
-# Configuración del grabador
-DEVICE_INDEX = -1  # Índice del dispositivo (-1 para usar el predeterminado)
-FRAME_LENGTH = 512  # Longitud de cada fotograma
-OUTPUT_FILE = "prueba.wav"  # Archivo donde se guardará el audio grabado
-
-# Crear instancia del grabador
-recorder = PvRecorder(device_index=DEVICE_INDEX, frame_length=FRAME_LENGTH)
+recorder = PvRecorder(device_index=-1, frame_length=512)
 audio = []
-
+print("Empieza a grabar cuando se inicializa el script.")
+# keyboard.wait('space') 
+# print("Grabando... Pulsa la barra espaciadora para parar")
+# time.sleep(0.2)
 try:
-    print("Comenzando la grabación. Presiona Ctrl+C para detener.")
     recorder.start()
-
     while True:
         frame = recorder.read()
-        audio.extend(frame)  # Agregar los datos capturados al buffer
+        audio.extend(frame)
 except KeyboardInterrupt:
-    print("\nGrabación detenida.")
+    # if keyboard.is_pressed('space'): 
+    print("Se para la grabación del tema del debate") 
+    # time.sleep(0.2)
     recorder.stop()
-
-    # Guardar el audio en un archivo WAV
-    print(f"Guardando el audio en {OUTPUT_FILE}...")
-    with wave.open(OUTPUT_FILE, 'w') as f:
-        f.setnchannels(1)  # Canal mono
-        f.setsampwidth(2)  # 2 bytes por muestra (16 bits)
-        f.setframerate(16000)  # Frecuencia 
-        f.writeframes(struct.pack("h" * len(audio), *audio))
-    print("Archivo guardado .")
+    with wave.open("output.wav", "w") as file: 
+        file.setparams((1, 2, 16000, 512, "NONE", "NONE"))
+        file.writeframes(struct.pack("h" * len(audio), *audio))
 finally:
     recorder.delete()
 
 
+
+ 
