@@ -5,14 +5,15 @@ import socket
 import json
 import sys
 import os
+import pyttsx3
 from dotenv import load_dotenv
 
 CONVERSATION_LENGTH = 15  # Number of messages the conversation will last
-CONVERSATION_TEMPERATURE = 0.5  # Temperature (0 - 2)
+CONVERSATION_TEMPERATURE = 1  # Temperature (0 - 2)
 CONVINCE_TIME = 4  # Turns to start convince the other
 CONVINCE_TIME_DEFINITIVE = 2  # Turns to convince the other fully
-FREQUENCY_PENALTY = 0.5  # Avoid repeating the same words (0 - 2)
-PRESENCE_PENALTY = 0.8  # Avoid repeating the same arguments (0 - 2)
+FREQUENCY_PENALTY = 0.8  # Avoid repeating the same words (0 - 2)
+PRESENCE_PENALTY = 0.5  # Avoid repeating the same arguments (0 - 2)
 
 load_dotenv()  # Load the environment variables
 client = groq.Groq(api_key=os.getenv('API_KEY_1'))
@@ -49,9 +50,9 @@ def generate_name(client, model, blacklisted=None):
     - name: generated name
     """
     if blacklisted is None:
-        prompt = 'Date un nombre en español de UNA SOLA PALABRA. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
+        prompt = 'Date un nombre de persona en español de UNA SOLA PALABRA. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
     else:
-        prompt = f'Date un nombre en español de UNA SOLA PALABRA que no sea {blacklisted}. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
+        prompt = f'Date un nombre de persona en español de UNA SOLA PALABRA que no sea {blacklisted}. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
     
     messages = [{"role": "user", "content": prompt}]
     name = generate_response(client, model,messages)
@@ -104,18 +105,18 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     Outputs:
     - model1_new_personality: new personality for the server if it was changed, None otherwise
     """
-    model1_new_personality = None
-    model2_new_personality = None
+    model1_new_personality = None  # New personality for the server
+    model2_new_personality = None  # New personality for the client
     if messages_left == CONVINCE_TIME:  # Halfway through convincing
         if winner == 0:  # Server wins, convince the client (halfway)
-            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
+            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
         else:  # Client wins, convince the server (halfway)
-            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
+            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
     elif messages_left == CONVINCE_TIME_DEFINITIVE:  # Fully convinced
         if winner == 0:  # Server wins, convince the client (fully)
-            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano."
+            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model2_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
         else:  # Client wins, convince the server (fully)
-            model1_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano."
+            model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
 
     if model2_new_personality is not None:
         conn.sendall(json.dumps({  # Send the new personality to the client
@@ -123,21 +124,37 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
             'message': model2_new_personality
         }).encode('utf-8'))
     return model1_new_personality
+
+
+def speak_debug(text, voice_id='HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_ES-MX_SABINA_11.0', rate=175):
+    """
+    Speak the text using a debug local built-in TTS.
+    Attributes:
+    - text: text to speak
+    - voice_id: voice id to use (if no real one is selected, it uses the firs as failsafe)
+    - rate: speaking rate
+    """
+    engine = pyttsx3.init()  # Initialize the TTS engine
+    engine.setProperty('voice', voice_id)  # Set the voice
+    engine.setProperty('rate', rate)  # Set the rate
+    engine.say(text)  # Speak the text
+    engine.runAndWait()  # Wait for the TTS to finish (BLOCKING FOR TCP COMMUNICATION OF THE MESSAGE)
     
 
 def main():
     remaining_messages = CONVERSATION_LENGTH
     model1 = 'llama3-70b-8192'  # Model for server
     model2 = 'llama3-70b-8192'  # Model for client
-    user_topic = '¿Crees que es posible viajar en el tiempo?'
+    user_topic = '¿Crees que la tortilla de patatas esta mejor con o sin ketchup?'
+    context = []  # Context of the conversation
 
     # Personalities and opinions
-    model1_opinion = 'Crees que los viajes en el tiempo son reales y de hecho estás convencido de que eres un viajero del tiempo.'
-    model2_opinion = 'No crees en los viajes en el tiempo y de hecho piensas que las personas que lo hacen sufren de algún tipo de trastorno mental.'
-    model1_personality = f'{model1_opinion} Inventate argumentos y datos para defender tu opinión.'
-    model2_personality = f'{model2_opinion} Muestra datos reales y argumentos para defender tu opinión.'
+    model1_opinion = 'Te gusta mucho el ketchup, especialmente en la tortilla de patatas, y crees que es una combinación deliciosa.'
+    model2_opinion = 'No te gusta el ketchup en la tortilla de patatas, prefieres disfrutar del sabor original de la tortilla sin añadirle ningún condimento adicional.'
+    model1_personality = f'{model1_opinion} Usa argumentos, razones, ejemplos y experiencias personales para defender tu punto de vista.'
+    model2_personality = f'{model2_opinion} Usa argumentos, razones, ejemplos y experiencias personales para defender tu punto de vista.'
 
-    topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Muy importante, tus argumentos deben ser breves y concisos, de una oración como mucho. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural. Comunica un solo argumento o idea por mensaje para que la conversación sea clara y efectiva.'
+    topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Muy importante, tus argumentos deben ser breves y concisos, de una oración como mucho. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural. Comunica un solo argumento o idea por mensaje para que la conversación sea clara y efectiva. Si citas a alguien, no lo hagas mas de una vez.'
 
     start_message = f'Expresa claramente tu creencia y posicion sobre el tema en una sola frase clara. Este es el inicio de la conversacion, por lo que no puedes hacer referencia a interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
  
@@ -192,10 +209,11 @@ def main():
             messages = [{"role": "system", "content":model1_personality},
                         {"role": "user", "content": prompt}]
             
-            response = generate_response(client, model1, messages )
+            response = generate_response(client, model1, messages)
 
             print(f"Server ({model1_name}) dice:", response)
             print('-' * 50)
+            speak_debug(response)
 
             messages.append({"role": "assistant", "content": response})  # Append the response to the message history
 
@@ -217,6 +235,7 @@ def main():
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
+                messages[0] = {"role": "system", "content":model1_personality}
 
 
             # Revieve the message from the client
@@ -233,6 +252,7 @@ def main():
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
+                messages[0] = {"role": "system", "content":model1_personality}
             if remaining_messages == 1:  # A single message is left, send a message to the client informing them
                 conn.sendall(json.dumps({  # Send the end message to the client
                     'name': "system",
@@ -241,10 +261,12 @@ def main():
 
 
             # Send a message to the client
-            messages = [{"role": "user", "content": client_msg['message']+ topic}]  # Create a message to send to the model
+            prompt = f"{client_msg['message']}\nTema: {topic}\nPersonalidad: {model1_personality}\nRespuesta:"
+            messages = [{"role": "user", "content": prompt}]  # Create a message to send to the model
             response = generate_response(client, model1, messages)  # Generate a response
             print(f"Server ({model1_name}):", response)
             print('-' * 50)
+            speak_debug(response)
             messages.append({"role": "assistant", "content": response})  # Append the response to the message history
             conn.sendall(json.dumps({  # Send the response to the client
                 'name': model1_name,

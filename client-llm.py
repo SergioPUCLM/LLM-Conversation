@@ -2,6 +2,7 @@ import socket
 import json
 import groq
 import os
+import pyttsx3
 from dotenv import load_dotenv
 
 CONVERSATION_TEMPERATURE = None
@@ -60,6 +61,21 @@ def set_globals(config):
     PRESENCE_PENALTY = config['presence_penalty']
 
 
+def speak_debug(text, voice_id='default', rate=175):
+    """
+    Speak the text using a debug local built-in TTS.
+    Attributes:
+    - text: text to speak
+    - voice_id: voice id to use (if no real one is selected, it uses the firs as failsafe)
+    - rate: speaking rate
+    """
+    engine = pyttsx3.init()  # Initialize the TTS engine
+    engine.setProperty('voice', voice_id)  # Set the voice
+    engine.setProperty('rate', rate)  # Set the rate
+    engine.say(text)  # Speak the text
+    engine.runAndWait()  # Wait for the TTS to finish (BLOCKING FOR TCP COMMUNICATION OF THE MESSAGE)
+
+
 def main():
     HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
     PORT = 4670        
@@ -68,6 +84,7 @@ def main():
         # ============ CONNECTION PHASE ============
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create a socket object
         client_socket.connect((HOST, PORT))  # Connect to the server
+        context = []
         print(f"Conectado al servidor en {HOST}:{PORT}")
        
         client_socket.sendall("Iniciame".encode('utf-8'))  # Send a request to be initialized
@@ -98,16 +115,17 @@ def main():
         # ============ GREETING PHASE ============
         if starting_model == 0:  # 0 = Server starts, 1 = Client starts
             data = recv_all(client_socket).decode('utf-8')  # Receive the greeting from the server (STEP1: RECIVE)
-            serer_msg = json.loads(data)  # Parse the data
-            print(f"Server ({serer_msg['name']}) dice: {serer_msg['message']}")
-            print('-' * 50)  
+            sevrer_msg = json.loads(data)  # Parse the data
+            print(f"Server ({sevrer_msg['name']}) dice: {sevrer_msg['message']}")
+            print('-' * 50)
 
             messages = [{"role": "system", "content":personality},
-                        {"role": "user", "content": topic + "\n\n------------------------------\n"+ serer_msg['message']}]
+                        {"role": "user", "content": topic + "\n\n------------------------------\n"+ sevrer_msg['message']}]
             
             response = generate_response(client, model, messages)  # Generate a response from the model
             print(f"Cliente ({name}):", response)
             print('-' * 50)
+            speak_debug(response)  # Speak the response
 
             messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
@@ -125,8 +143,9 @@ def main():
                         {"role": "user", "content": prompt}]
 
             response = generate_response(client, model, messages)  # Generate a response from the model
-            print(f"Cliente ({name}) dice:", response)
+            print(f"Cliente ({name}):", response)
             print('-' * 50)
+            speak_debug(response)
 
             messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
@@ -149,14 +168,17 @@ def main():
                     last_msg = True
                 else:  # If not, set the personality
                     personality = client_msg['message']
+                    messages[0] = {"role": "system", "content":personality}
             else:  # If not, continue with the conversation
                 print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
                 print('-' * 50)
 
-                messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
+                prompt = f"{client_msg['message']}\nTema: {topic}\nPersonalidad: {personality}\nRespuesta:"
+                messages = [{"role": "user", "content": prompt}]  # Append the message to the messages
                 response = generate_response(client, model, messages)  # Generate a response from the model
                 print(f"Cliente ({name}):", response)
                 print('-' * 50)
+                speak_debug(response)
                 messages.append({"role": "assistant", "content": response})  # Append the response to the messages
                 message_to_server = {  # Create a message to send to the server
                     'name': name,
