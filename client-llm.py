@@ -136,17 +136,23 @@ def main():
             }).encode('utf-8'))
 
         # ============ CONVERSATION PHASE ============
+        last_msg = False  # Flag to indicate if the client will be the last message
         while True:
             data = recv_all(client_socket).decode('utf-8')  # Receive the message from the server
             client_msg = json.loads(data)  # Parse the data
-
-            if client_msg['name'] == "system": # If we recieve a system message, change personality
-                personality = client_msg['message']
-                print("PERSONALITY CHANGED")
             
+            # System message handling
+            if client_msg['name'] == "system": # If we recieve a system message
+                if client_msg['message'] == "END":  # If the message is "END", end the conversation
+                    break
+                elif client_msg['message'] == "END-IN-ONE":  # If the message is "END-IN-ONE", end the conversation after the client's message
+                    last_msg = True
+                else:  # If not, set the personality
+                    personality = client_msg['message']
             else:  # If not, continue with the conversation
                 print(f"Server ({client_msg['name']}) dice: {client_msg['message']}")
                 print('-' * 50)
+
                 messages = [{"role": "user", "content": client_msg['message']+topic}]  # Append the message to the messages
                 response = generate_response(client, model, messages)  # Generate a response from the model
                 print(f"Cliente ({name}):", response)
@@ -157,6 +163,8 @@ def main():
                     'message': response
                 }
                 client_socket.sendall(json.dumps(message_to_server).encode('utf-8'))  # Send the message to the server
+                if last_msg:
+                    break
 
     except ConnectionRefusedError:  # Handle connection error
         print("Error: No se pudo conectar al servidor. Asegurate de que el servidor esta en linea y la wifi no es eduroam.")
@@ -168,7 +176,7 @@ def main():
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
-        print("Conexión cerrada.")
+        print("Conexión cerrada correctamente.")
 
 if __name__ == "__main__":
     main()

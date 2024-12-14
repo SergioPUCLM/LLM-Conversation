@@ -107,13 +107,11 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     model1_new_personality = None
     model2_new_personality = None
     if messages_left == CONVINCE_TIME:  # Halfway through convincing
-        print("DEBUG: SOMEONE HALF CONVINCED")
         if winner == 0:  # Server wins, convince the client (halfway)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
         else:  # Client wins, convince the server (halfway)
             model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano."
     elif messages_left == CONVINCE_TIME_DEFINITIVE:  # Fully convinced
-        print("DEBUG: SOMEONE FULLY CONVINCED")
         if winner == 0:  # Server wins, convince the client (fully)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano."
         else:  # Client wins, convince the server (fully)
@@ -219,7 +217,6 @@ def main():
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
-            print(f"Messages left: {remaining_messages}")
 
 
             # Revieve the message from the client
@@ -236,7 +233,11 @@ def main():
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
-            print(f"Messages left: {remaining_messages}")
+            if remaining_messages == 1:  # A single message is left, send a message to the client informing them
+                conn.sendall(json.dumps({  # Send the end message to the client
+                    'name': "system",
+                    'message': "END-IN-ONE"
+                }).encode('utf-8'))
 
 
             # Send a message to the client
@@ -248,9 +249,12 @@ def main():
             conn.sendall(json.dumps({  # Send the response to the client
                 'name': model1_name,
                 'message': response
-            }).encode('utf-8'))      
-        print("CONVERSATION ENDED")
-
+            }).encode('utf-8'))
+        # Send client an end message
+        conn.sendall(json.dumps({  # Send the end message to the client
+            'name': "system",
+            'message': "END"
+        }).encode('utf-8'))
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
@@ -261,6 +265,7 @@ def main():
     finally:  # Close the connection
         conn.close()
         server_socket.close()
+        print("Conexión cerrada correctamente.")
 
 
 if __name__ == '__main__':
