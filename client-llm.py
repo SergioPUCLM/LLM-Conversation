@@ -77,8 +77,8 @@ def speak_debug(text, voice_id='default', rate=175):
 
 
 def main():
-    HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
-    PORT = 4670        
+    HOST = '192.168.161.222'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
+    PORT = 4670
 
     try:
         # ============ CONNECTION PHASE ============
