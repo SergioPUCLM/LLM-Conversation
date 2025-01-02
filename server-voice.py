@@ -8,10 +8,10 @@ import os
 import pyttsx3
 from dotenv import load_dotenv
 
-CONVERSATION_LENGTH = 15  # Number of messages the conversation will last
+CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
 CONVERSATION_TEMPERATURE = 1  # Temperature (0 - 2)
-CONVINCE_TIME = 4  # Turns to start convince the other
-CONVINCE_TIME_DEFINITIVE = 2  # Turns to convince the other fully
+CONVINCE_TIME = 2  # Turns to start convince the other
+CONVINCE_TIME_DEFINITIVE = 1  # Turns to convince the other fully
 FREQUENCY_PENALTY = 0.8  # Avoid repeating the same words (0 - 2)
 PRESENCE_PENALTY = 0.5  # Avoid repeating the same arguments (0 - 2)
 
@@ -54,8 +54,8 @@ def generate_name(client, model, blacklisted=None):
     else:
         prompt = f'Date un nombre de persona en español de UNA SOLA PALABRA que no sea {blacklisted}. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
     
-    messages = [{"role": "user", "content": prompt}]
-    name = generate_response(client, model,messages)
+    message = [{"role": "user", "content": prompt}]
+    name = generate_response(client, model,message)
     name = name.replace('\n', '')
     name = ''.join(e for e in name if e.isalnum())
     return name
@@ -120,44 +120,86 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
 
     if model2_new_personality is not None:
         conn.sendall(json.dumps({  # Send the new personality to the client
-            'name': "system",  # Client reconizes system messages as petitions to change personality
+            'name': "personality",  # Client reconizes personality messages as petitions to change personality
             'message': model2_new_personality
         }).encode('utf-8'))
     return model1_new_personality
 
 
 def speak_debug(text, voice_id='HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_ES-MX_SABINA_11.0', rate=175):
+    #FIXME: Remove this function once speak() is implemented with google cloud
     """
     Speak the text using a debug local built-in TTS.
     Attributes:
     - text: text to speak
     - voice_id: voice id to use (if no real one is selected, it uses the firs as failsafe)
-    - rate: speaking rate
+    - rate: speaking rate (speed of speech)
     """
     engine = pyttsx3.init()  # Initialize the TTS engine
     engine.setProperty('voice', voice_id)  # Set the voice
     engine.setProperty('rate', rate)  # Set the rate
     engine.say(text)  # Speak the text
     engine.runAndWait()  # Wait for the TTS to finish (BLOCKING FOR TCP COMMUNICATION OF THE MESSAGE)
-
-
-def hear_debug():
-    print("THIS FUNCTION IS NOT IMPLEMENTED YET, THE MACHINE NEEDS TO START LISTENING HERE")
-    return "DEBUG MESSAGE"
     
 
-def send_message(conn, name, message):
+def send_listen(conn):  # Signal other model that we are about to speak and should start listening
     """
-    Helper function to send a message to the client in the correct JSON format.
+    Send a message asking to listen
+    Attributes:
+    - conn: connection object
     """
-    conn.sendall(json.dumps({'name': name, 'message': message}).encode('utf-8'))
+    time.sleep(0.1) # Small delay to avoid race conditions
+    conn.sendall(json.dumps({
+        'name': "system",
+        'message': "LISTEN"
+    }).encode('utf-8'))
 
-def recv_message(conn):
+
+def send_speak(conn):
     """
-    Helper function to receive a message from the client in the correct JSON format.
+    Send a message asking to speak
+    Attributes:
+    - conn: connection object
     """
-    data = recv_all(conn).decode('utf-8')
-    return json.loads(data)
+    time.sleep(0.1) # Small delay to avoid race conditions
+    conn.sendall(json.dumps({
+        'name': "system",
+        'message': "SPEAK"
+    }).encode('utf-8'))
+
+
+def send_stop(conn):
+    """
+    Send a message asking to stop listening
+    Attributes:
+    - conn: connection object
+    """
+    time.sleep(0.1) # Small delay to avoid race conditions
+    conn.sendall(json.dumps({
+        'name': "system",
+        'message': "STOP"
+    }).encode('utf-8'))
+
+
+def speak():
+    #TODO: This function is not yet implemented. It needs to be BLOCKING
+    pass
+
+
+def hear():
+    #TODO: This function is not yet implemented. It needs to be NON-BLOCKING
+    pass
+
+
+def text_to_speech(text):
+    #TODO: This function is not yet implemented. It needs to convert a response into an audio file+
+    pass
+
+
+def speech_to_text(audio_file):
+    #TODO: This function is not yet implemented. It needs to convert an audio file into a text prompt
+    pass
+
 
 def main():
     remaining_messages = CONVERSATION_LENGTH
@@ -165,6 +207,8 @@ def main():
     model2 = 'llama3-70b-8192'  # Model for client
     user_topic = '¿Crees que la tortilla de patatas esta mejor con o sin ketchup?'
     context = []  # Context of the conversation
+
+    #TODO: Make the opinions and stuff be on a json file for the defaults and ask user input for the custom ones
 
     # Personalities and opinions
     model1_opinion = 'Te gusta mucho el ketchup, especialmente en la tortilla de patatas, y crees que es una combinación deliciosa.'
@@ -175,23 +219,24 @@ def main():
     topic = f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. Muy importante, tus argumentos deben ser breves y concisos, de una oración como mucho. No repitas argumentos u opiniones. NO DIGAS EL NUMERO DEL ARGUMENTO. No hagas roleplay ni asumas un rol. Si se te pide que te convenzas, hazlo de manera natural. Comunica un solo argumento o idea por mensaje para que la conversación sea clara y efectiva. Si citas a alguien, no lo hagas mas de una vez.'
 
     start_message = f'Expresa claramente tu creencia y posicion sobre el tema en una sola frase clara. Este es el inicio de la conversacion, por lo que no puedes hacer referencia a interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
-
+ 
     model1_name = generate_name(client, model1)  # Generate a name for the server model
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
+    starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     winner = random.choice([0, 1])  # What model "wins" the debate (0 = Server, 1 = Client)
 
-    # ============ CONNECTION PHASE ============ 
+    # ============ CONNECTION PHASE ============
     server_socket = init_server()
     conn, addr = server_socket.accept()
 
-    # ============ CONFIGURATION PHASE ============ 
+    # ============ CONFIGURATION PHASE ============
     try:
         print(f"Conexión establecida con {addr}") 
         data = recv_all(conn).decode('utf-8')  # Receive petition to be initialized
         
-        if data == "Iniciame":  # Check the petition
+        if data== "Iniciame":  # Check the petition
             datos_iniciales = {  # Send the initial configuration to the client
                 "message": "Bienvenido al servidor",
                 "configuration": {
@@ -208,88 +253,166 @@ def main():
             }
             
             json_datos = json.dumps(datos_iniciales)  # Pack into a json object
-            send_message(conn, "system", json_datos)  # Send the config to the client
+            conn.sendall(json_datos.encode('utf-8'))  # Send the config to the client
 
         data = recv_all(conn).decode('utf-8')  # Receive the confirmation message from the client that config was received
         if data != "Estoy listo":  # Check the confirmation
-            print("Error: No se reconoce el comando")
+            print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
         
-        # ============ GREETING PHASE ============ 
+        # ============ GREETING PHASE ============
         print('Tema: ', topic)
         print('-' * 50)
         
         if starting_model == 0: # We start (Send a greeting to client)
-            send_message(conn, "system", "LISTEN")  # Signal client to start listening
-            data = recv_message(conn)
-            if data['message'] != "LISTENING":
-                print("Error: Client failed to confirm LISTENING state.")
-                sys.exit()
-
             prompt = f"Context: 'Este es el primer mensaje de la conversación' \
                     \nTema: {topic}\
                     \nInstructiones: {start_message}\nTu opinión:"
-
-            messages = [{"role": "system", "content": model1_personality},
+            messages = [{"role": "system", "content":model1_personality},
                         {"role": "user", "content": prompt}]
-            
             response = generate_response(client, model1, messages)
 
             print(f"Server ({model1_name}) dice:", response)
             print('-' * 50)
-            speak_debug(response)
 
-            messages.append({"role": "assistant", "content": response})  # Append the response to the message history
+            send_listen(conn)  # Signal the client to start listening
+            print("DEBUG: SENT LISTEN SIGNAL")
+            
+            print("DEBUG: AWAITING SPEAK SIGNAL")
+            # Receive signal to start speaking
+            data = recv_all(conn).decode('utf-8')  
+            client_msg = json.loads(data)
+            if not client_msg['message'] == "SPEAK":
+                print(f"Error: No se reconoce el comando. Se esperaba 'SPEAK' y se recibió {client_msg['message']}")
+                sys.exit()
+            print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-            send_message(conn, model1_name, response)  # Send the greeting to the client
-            send_message(conn, "system", "STOP")  # Signal client that we are done speaking
+            #TODO: START SPEAKING
+
+            messages.append({"role": "assistant", "content": response})  # Append our response to the message history
+            remaining_messages -= 1  # Decrease the remaining messages
+
+            #FIXME: REMOVE THIS ONCE THE VOICE COMMUNICATION IS IMPLEMENTED
+            time.sleep(0.1)  # Wait to avoid race conditions
+            conn.sendall(json.dumps({  # Send the greeting to the client
+                    'name': model1_name,
+                    'message': response
+                }).encode('utf-8'))
+
+            send_stop(conn)  # Signal the client to stop listening
+            print("DEBUG: SENT STOP SIGNAL")
+
+        else:
+            messages = [{"role": "system", "content":model2_personality},
+                        {"role": "user", "content": topic}]
         
+
+        # ============ CONVERSATION PHASE ============
         while True:  # Loop to keep the conversation going
+            # Message count checks
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
+                print("DEBUG: NO MORE MESSAGES")
                 break
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
-                messages[0] = {"role": "system", "content": model1_personality}
-
-            data = recv_message(conn)
-            if data['message'] != "LISTEN":
-                print("Error: Client failed to initiate LISTEN state.")
+                messages[0] = {"role": "system", "content":model1_personality}
+            
+            print("DEBUG: AWAITING LISTEN SIGNAL")
+            # Receive signal to start listening
+            data = recv_all(conn).decode('utf-8')
+            print(f"DEBUG: DATA: {data}")
+            client_msg = json.loads(data)
+            if not client_msg['message'] == "LISTEN":
+                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                 sys.exit()
-            send_message(conn, "system", "LISTENING")  # Confirm to client we are listening
+            print("DEBUG: RECEIVED LISTEN SIGNAL")
 
-            data = recv_message(conn)
-            print(f"Cliente ({data['name']}) dice: {data['message']}")
+            #TODO: START LISTENING
+
+            send_speak(conn)  # Signal the client to start speaking because we are listening
+            print("DEBUG: SENT SPEAK SIGNAL")
+
+            # Retrieve the message from the client
+            data = recv_all(conn).decode('utf-8')
+            client_msg = json.loads(data) 
+            print(f"Cliente ({client_msg['name']}) dice: {client_msg['message']}")
             print('-' * 50)
+            messages.append({"role": "user", "content": client_msg['message']})  # Append the client's message to the message history
 
-            if remaining_messages == 1:  # A single message is left, send a message to the client informing them
-                send_message(conn, "system", "END-IN-ONE")
-
-            send_message(conn, "system", "LISTEN")  # Signal client to start listening
-            data = recv_message(conn)
-            if data['message'] != "LISTENING":
-                print("Error: Client failed to confirm LISTENING state.")
+            print("DEBUG: AWAITING STOP SIGNAL")
+             # Receive signal to stop listening
+            data = recv_all(conn).decode('utf-8')
+            client_msg = json.loads(data)
+            if not client_msg['message'] == "STOP":
+                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                 sys.exit()
+            print("DEBUG: RECEIVED STOP SIGNAL")
 
-            prompt = f"{data['message']}\nTema: {topic}\nPersonalidad: {model1_personality}\nRespuesta:"
-            messages = [{"role": "user", "content": prompt}]  # Create a message to send to the model
+            # TODO: STOP LISTENING
+
+            # Message count checks
+            remaining_messages -= 1
+            if remaining_messages <= 0:  # If we are out of messages, break the loop
+                print("DEBUG: NO MORE MESSAGES")
+                break
+            new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
+            if new_personality is not None:  # If we need to change the personality, do so
+                model1_personality = new_personality
+                messages[0] = {"role": "system", "content":model1_personality}
+            if remaining_messages == 1:  # A single message is left, send a message to the client informing them
+                time.sleep(0.1)  # Wait to avoid race conditions
+                conn.sendall(json.dumps({  # Send the end message to the client
+                    'name': "system",
+                    'message': "END-IN-ONE"
+                }).encode('utf-8'))
+
+
+            # Send a message to the client
+            prompt = f"{client_msg['message']}\nTema: {topic}\nPersonalidad: {model1_personality}\nRespuesta:"
+            messages.append({"role": "user", "content": prompt})  # Create a message to send to the model
             response = generate_response(client, model1, messages)  # Generate a response
             print(f"Server ({model1_name}):", response)
             print('-' * 50)
-            speak_debug(response)
-            messages.append({"role": "assistant", "content": response})  # Append the response to the message history
-            send_message(conn, model1_name, response)  # Send the response to the client
-            send_message(conn, "system", "STOP")  # Signal client that we are done speaking
+            messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
-        send_message(conn, "system", "END")  # Send the end message to the client
+            send_listen(conn)  # Signal the client to start listening
+            print("DEBUG: SENT LISTEN SIGNAL")
+
+            print("DEBUG: AWAITING SPEAK SIGNAL")
+            # Receive signal to start speaking
+            data = recv_all(conn).decode('utf-8')
+            client_msg = json.loads(data)
+            if not client_msg['message'] == "SPEAK":
+                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
+                sys.exit()
+            print("DEBUG: RECEIVED SPEAK SIGNAL")
+
+            #TODO: START SPEAKING
+
+            time.sleep(0.1)  # Wait to avoid race conditions
+            conn.sendall(json.dumps({  # Send the response to the client
+                'name': model1_name,
+                'message': response
+            }).encode('utf-8'))
+
+            send_stop(conn)  # Signal the client to stop listening
+            print("DEBUG: SENT STOP SIGNAL")
+
+        # Send client an end message
+        time.sleep(0.1)  # Wait to avoid race conditions
+        conn.sendall(json.dumps({  # Send the end message to the client
+            'name': "system",
+            'message': "END"
+        }).encode('utf-8'))
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
-    except json.JSONDecodeError:  # Handle JSON decoding error
-        print("\nSe ha producido un error en la comunicación con el servidor")
-    except Exception as e:  # Handle any other exception
-        print("\nSe ha producido un error inesperado:", e)
+    #except  json.JSONDecodeError:  # Handle JSON decoding error
+        #print("\nSe ha producido un error en la comunicación con el cliente")
+    #except Exception as e:  # Handle any other exception
+        #print("\nSe ha producido un error inesperado:", e)
     finally:  # Close the connection
         conn.close()
         server_socket.close()
