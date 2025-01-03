@@ -1,0 +1,18 @@
+python-dotenv
+numpy
+
+#Audio
+pyaudio
+wave
+
+#Interface
+#tkinter
+
+# APIs
+groq
+google-cloud-speech
+google-cloud-texttospeech
+google-auth
+
+# For older versions
+#pyttsx3
