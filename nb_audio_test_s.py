@@ -6,11 +6,31 @@ import pyaudio
 import wave 
 import numpy as np
 
+from google.cloud import speech
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./bamboo.json"
 
 # Define a callback function to handle audio input (non-blocking)
 def audio_callback(in_data, frame_count, time_info, status):
     frames.append(in_data)  # Append the incoming audio data to the frames list
     return (in_data, pyaudio.paContinue)  # Continue recording
+
+def speech_to_text(audio_file):
+    client = speech.SpeechClient()
+    with open(audio_file, 'rb') as audio_file:
+        content = audio_file.read()
+    
+    audio = speech.RecognitionAudio(content=content)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=44100,
+        language_code="es-ES",
+    )
+    
+    response = client.recognize(config=config, audio=audio)
+    
+    return response.results[0].alternatives[0].transcript
+    
 
 
 # ========================================== SERVER INITIALIZATION ==========================================
@@ -84,3 +104,7 @@ wf.writeframes(amplified_audio_data)  # Write the amplified frames to the file
 wf.close()
 
 print(f"Amplified audio saved to {filename}")
+
+print("Converting audio to text...")
+print(speech_to_text(filename))
+print("Text conversion complete.")
