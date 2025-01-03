@@ -1,12 +1,16 @@
-import groq
-import random
-import time
 import socket
 import json
-import sys
+import groq
 import os
-import pyttsx3
+import sys
+import time
+import wave
+import pyaudio
+import numpy as np
+import random
+
 from dotenv import load_dotenv
+from google.cloud import texttospeech, speech
 
 CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
 CONVERSATION_TEMPERATURE = 1  # Temperature (0 - 2)
@@ -15,7 +19,14 @@ CONVINCE_TIME_DEFINITIVE = 1  # Turns to convince the other fully
 FREQUENCY_PENALTY = 0.8  # Avoid repeating the same words (0 - 2)
 PRESENCE_PENALTY = 0.5  # Avoid repeating the same arguments (0 - 2)
 
+# global variables to control the audio
+frames = []
+audio_stream = None
+p_audio = None
+
+
 load_dotenv()  # Load the environment variables
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./bamboo.json" # Set the Google credentials
 client = groq.Groq(api_key=os.getenv('API_KEY_1'))
 
 
@@ -126,22 +137,6 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     return model1_new_personality
 
 
-def speak_debug(text, voice_id='HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_ES-MX_SABINA_11.0', rate=175):
-    #FIXME: Remove this function once speak() is implemented with google cloud
-    """
-    Speak the text using a debug local built-in TTS.
-    Attributes:
-    - text: text to speak
-    - voice_id: voice id to use (if no real one is selected, it uses the firs as failsafe)
-    - rate: speaking rate (speed of speech)
-    """
-    engine = pyttsx3.init()  # Initialize the TTS engine
-    engine.setProperty('voice', voice_id)  # Set the voice
-    engine.setProperty('rate', rate)  # Set the rate
-    engine.say(text)  # Speak the text
-    engine.runAndWait()  # Wait for the TTS to finish (BLOCKING FOR TCP COMMUNICATION OF THE MESSAGE)
-    
-
 def send_listen(conn):  # Signal other model that we are about to speak and should start listening
     """
     Send a message asking to listen
@@ -181,24 +176,158 @@ def send_stop(conn):
     }).encode('utf-8'))
 
 
-def speak():
-    #TODO: This function is not yet implemented. It needs to be BLOCKING
-    pass
-
+def audio_callback(in_data, frame_count, time_info, status):
+    """Callback for non-blocking audio recording"""
+    frames.append(in_data)
+    return (in_data, pyaudio.paContinue)
 
 def hear():
-    #TODO: This function is not yet implemented. It needs to be NON-BLOCKING
-    pass
+    """Non-blocking audio recording function"""
+    global frames, audio_stream, p_audio
+    
+    # Reset frames array
+    frames = []
+    
+    # Initialize PyAudio
+    p_audio = pyaudio.PyAudio()
+    
+    # Open audio stream (non-blocking)
+    audio_stream = p_audio.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=44100,
+        input=True,
+        frames_per_buffer=1024,
+        stream_callback=audio_callback
+    )
+    
+    # Start the stream
+    audio_stream.start_stream()
 
+def stop_hearing():
+    """Stop recording and process the audio"""
+    global audio_stream, p_audio, frames
+    
+    if audio_stream:
+        # Stop and close the stream
+        audio_stream.stop_stream()
+        audio_stream.close()
+        p_audio.terminate()
+        
+        # Process the recorded audio
+        audio_data = b''.join(frames)
+        audio_array = np.frombuffer(audio_data, dtype=np.int16)
+        
+        # Amplify the audio
+        gain_factor = 5.0
+        amplified_audio_array = np.clip(audio_array * gain_factor, -32768, 32767)
+        amplified_audio_data = amplified_audio_array.astype(np.int16).tobytes()
+        
+        # Save to WAV file
+        filename = "recorded_speech.wav"
+        if os.path.exists(filename):
+            os.remove(filename)
+            
+        wf = wave.open(filename, 'wb')
+        wf.setnchannels(1)
+        wf.setsampwidth(p_audio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(44100)
+        wf.writeframes(amplified_audio_data)
+        wf.close()
+        
+        # Convert to text
+        try:
+            text = speech_to_text(filename)
+            return text
+        except Exception as e:
+            print(f"Error converting speech to text: {e}")
+            return ""
 
-def text_to_speech(text):
-    #TODO: This function is not yet implemented. It needs to convert a response into an audio file+
-    pass
-
+def speak(text):
+    """Blocking function to convert text to speech and play it"""
+    try:
+        # Convert text to speech
+        output_file = 'temp_speech.wav'
+        text_to_speech(text, output_file)
+        
+        # Play the audio (blocking)
+        play_audio(output_file)
+        
+        # Clean up
+        if os.path.exists(output_file):
+            os.remove(output_file)
+            
+    except Exception as e:
+        print(f"Error in speak function: {e}")
 
 def speech_to_text(audio_file):
-    #TODO: This function is not yet implemented. It needs to convert an audio file into a text prompt
-    pass
+    """
+    Convert audio file to text using Google Cloud Speech-to-Text API.  
+    """
+    client = speech.SpeechClient()
+    with open(audio_file, 'rb') as audio_file:
+        content = audio_file.read()
+    
+    audio = speech.RecognitionAudio(content=content)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=44100,
+        language_code="es-ES",
+    )
+    
+    response = client.recognize(config=config, audio=audio)
+    
+    return response.results[0].alternatives[0].transcript
+
+def text_to_speech(text, output_file):
+    """
+    Convert text to speech using Google Cloud Text-to-Speech API.
+    """
+    client = texttospeech.TextToSpeechClient()
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="es-ES",
+        ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL,
+    )
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.LINEAR16
+    )
+    response = client.synthesize_speech(
+        input=synthesis_input, voice=voice, audio_config=audio_config
+    )
+
+    with open(output_file, "wb") as out:
+        out.write(response.audio_content)
+        print(f'Audio content written to file {output_file}')
+
+def play_audio(file_path):
+    """
+    Play the audio file using PyAudio.
+    """
+    # Open the WAV file
+    wf = wave.open(file_path, 'rb')
+    
+    # Initialize PyAudio
+    p = pyaudio.PyAudio()
+    
+    # Open stream
+    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+                    channels=wf.getnchannels(),
+                    rate=wf.getframerate(),
+                    output=True)
+    
+    # Read data in chunks and play
+    data = wf.readframes(1024)
+    while data:
+        stream.write(data)
+        data = wf.readframes(1024)
+    
+    # Clean up
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    wf.close()
 
 
 def main():
@@ -287,17 +416,10 @@ def main():
                 sys.exit()
             print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-            #TODO: START SPEAKING
+            speak(response)  # Speak the response
 
             messages.append({"role": "assistant", "content": response})  # Append our response to the message history
             remaining_messages -= 1  # Decrease the remaining messages
-
-            #FIXME: REMOVE THIS ONCE THE VOICE COMMUNICATION IS IMPLEMENTED
-            time.sleep(0.1)  # Wait to avoid race conditions
-            conn.sendall(json.dumps({  # Send the greeting to the client
-                    'name': model1_name,
-                    'message': response
-                }).encode('utf-8'))
 
             send_stop(conn)  # Signal the client to stop listening
             print("DEBUG: SENT STOP SIGNAL")
@@ -329,17 +451,10 @@ def main():
                 sys.exit()
             print("DEBUG: RECEIVED LISTEN SIGNAL")
 
-            #TODO: START LISTENING
+            hear()  # Start listening
 
             send_speak(conn)  # Signal the client to start speaking because we are listening
             print("DEBUG: SENT SPEAK SIGNAL")
-
-            # Retrieve the message from the client
-            data = recv_all(conn).decode('utf-8')
-            client_msg = json.loads(data) 
-            print(f"Cliente ({client_msg['name']}) dice: {client_msg['message']}")
-            print('-' * 50)
-            messages.append({"role": "user", "content": client_msg['message']})  # Append the client's message to the message history
 
             print("DEBUG: AWAITING STOP SIGNAL")
              # Receive signal to stop listening
@@ -350,7 +465,12 @@ def main():
                 sys.exit()
             print("DEBUG: RECEIVED STOP SIGNAL")
 
-            # TODO: STOP LISTENING
+            message = stop_hearing()  # Stop listening and process the audio
+
+            print(f"Cliente ({model2_name}) dice: {message}")
+            print('-' * 50)
+            messages.append({"role": "user", "content": message})  # Append the client's message to the message history
+
 
             # Message count checks
             remaining_messages -= 1
@@ -389,23 +509,11 @@ def main():
                 sys.exit()
             print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-            #TODO: START SPEAKING
-
-            time.sleep(0.1)  # Wait to avoid race conditions
-            conn.sendall(json.dumps({  # Send the response to the client
-                'name': model1_name,
-                'message': response
-            }).encode('utf-8'))
+            speak(response)  # Speak the response
 
             send_stop(conn)  # Signal the client to stop listening
             print("DEBUG: SENT STOP SIGNAL")
 
-        # Send client an end message
-        time.sleep(0.1)  # Wait to avoid race conditions
-        conn.sendall(json.dumps({  # Send the end message to the client
-            'name': "system",
-            'message': "END"
-        }).encode('utf-8'))
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
