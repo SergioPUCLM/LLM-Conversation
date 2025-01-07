@@ -22,7 +22,7 @@ audio_stream = None
 p_audio = None
 
 load_dotenv()  # Load the environment variables
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./bamboo.json" # Set the Google credentials
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./google-credentials.json" # Set the Google credentials
 client = groq.Groq(api_key=os.getenv('API_KEY_1'))
 
 
