@@ -6,7 +6,8 @@ pyaudio
 wave
 
 #Interface
-#tkinter
+tkintertable
+Pillow
 
 # APIs
 groq
