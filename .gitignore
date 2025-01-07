@@ -4,3 +4,5 @@ api-key2.txt
 .env
 env
 google-credentials*
+*.wav
+__pycache__
