@@ -8,11 +8,12 @@ import wave
 import pyaudio
 import numpy as np
 import random
+import threading
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
 
-from interface import DebateConfigInterface
+from interface import DebateConfigInterface, SpeakingWindow
 
 # NOTE: NOW IN INTERFACE
 # CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
@@ -21,6 +22,9 @@ from interface import DebateConfigInterface
 # CONVINCE_TIME_DEFINITIVE = 1  # Turns to convince the other fully
 # FREQUENCY_PENALTY = 0.8  # Avoid repeating the same words (0 - 2)
 # PRESENCE_PENALTY = 0.5  # Avoid repeating the same arguments (0 - 2)
+
+# global variable interface
+speaking_window = None
 
 # global variables to control the audio
 frames = []
@@ -241,6 +245,7 @@ def stop_hearing():
         # Convert to text
         try:
             text = speech_to_text(filename)
+            speaking_window.update_listening(text)
             return text
         except Exception as e:
             print(f"Error converting speech to text: {e}")
@@ -248,6 +253,7 @@ def stop_hearing():
 
 def speak(text):
     """Blocking function to convert text to speech and play it"""
+    speaking_window.update_speaking(text)
     try:
         # Convert text to speech
         output_file = 'temp_speech.wav'
@@ -332,6 +338,17 @@ def play_audio(file_path):
     p.terminate()
     wf.close()
 
+def show_speaking_window(model):
+    global speaking_window
+    speaking_window = SpeakingWindow(model)
+    speaking_window.window.mainloop()
+
+
+def close_speaking_window():
+    global speaking_window
+    if speaking_window:
+        #speaking_window.destroy()
+        speaking_window = None
 
 def main():
     # Initialize interface and get configuration
@@ -431,6 +448,10 @@ def main():
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
         
+        # Start the speaking window thread
+        window_thread = threading.Thread(target=show_speaking_window, args=(starting_model,), daemon=True)
+        window_thread.start()
+
         # ============ GREETING PHASE ============
         print('Tema: ', topic)
         print('-' * 50)
@@ -564,6 +585,7 @@ def main():
     #except Exception as e:  # Handle any other exception
         #print("\nSe ha producido un error inesperado:", e)
     finally:  # Close the connection
+        close_speaking_window()
         conn.close()
         server_socket.close()
         print("Conexión cerrada correctamente.")

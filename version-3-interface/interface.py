@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
-
+from PIL import Image, ImageTk
+import os
 
 class DebateConfigInterface:
     def __init__(self):
@@ -118,3 +119,52 @@ class DebateConfigInterface:
     def get_config(self):
         self.root.mainloop()
         return self.config
+
+class SpeakingWindow:
+    def __init__(self, model_name):
+        self.window = tk.Tk()
+        self.window.title(f"AI Speaking - {model_name}")
+        self.window.geometry("800x600")
+        
+        # Configure grid weights
+        self.window.grid_columnconfigure(0, weight=3)  # Avatar column
+        self.window.grid_columnconfigure(1, weight=2)  # Text column
+        
+        # Left frame (Avatar)
+        left_frame = ttk.Frame(self.window)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        # Load avatar image
+        avatar_path = f"model-avatars/{model_name}.webp"
+        if not os.path.exists(avatar_path):
+            avatar_path = "model-avatars/default.jpg"
+            
+        img = Image.open(avatar_path)
+        img = img.resize((300, 300))  # Fixed size
+        photo = ImageTk.PhotoImage(img)
+        
+        avatar_label = ttk.Label(left_frame, image=photo)
+        avatar_label.image = photo  # Keep reference
+        avatar_label.pack(expand=True)
+        
+        # Right frame (Text boxes)
+        right_frame = ttk.Frame(self.window)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+        # Speaking box
+        ttk.Label(right_frame, text="Speaking:").pack(anchor="w")
+        self.speaking_text = tk.Text(right_frame, height=10, width=40)
+        self.speaking_text.pack(fill="x", pady=(0, 10))
+        
+        # Listening box
+        ttk.Label(right_frame, text="Listening:").pack(anchor="w")
+        self.listening_text = tk.Text(right_frame, height=10, width=40)
+        self.listening_text.pack(fill="x")
+        
+    def update_speaking(self, text):
+        self.speaking_text.delete(1.0, tk.END)
+        self.speaking_text.insert(tk.END, text)
+        
+    def update_listening(self, text):
+        self.listening_text.delete(1.0, tk.END)
+        self.listening_text.insert(tk.END, text)

@@ -7,14 +7,19 @@ import time
 import wave
 import pyaudio
 import numpy as np
+import threading
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
 
+from interface import SpeakingWindow
 
 CONVERSATION_TEMPERATURE = None
 FREQUENCY_PENALTY = None
 PRESENCE_PENALTY = None
+
+# global variable interface
+speaking_window = None
 
 # global variables to control the audio
 frames = []
@@ -175,6 +180,7 @@ def stop_hearing():
         # Convert to text
         try:
             text = speech_to_text(filename)
+            speaking_window.update_listening(text)
             return text
         except Exception as e:
             print(f"Error converting speech to text: {e}")
@@ -182,6 +188,7 @@ def stop_hearing():
 
 def speak(text):
     """Blocking function to convert text to speech and play it"""
+    speaking_window.update_speaking(text)
     try:
         # Convert text to speech
         output_file = 'temp_speech.wav'
@@ -193,7 +200,7 @@ def speak(text):
         # Clean up
         if os.path.exists(output_file):
             os.remove(output_file)
-            
+        
     except Exception as e:
         print(f"Error in speak function: {e}")
 
@@ -266,6 +273,17 @@ def play_audio(file_path):
     p.terminate()
     wf.close()
 
+def show_speaking_window(model):
+    global speaking_window
+    speaking_window = SpeakingWindow(model)
+    speaking_window.window.mainloop()
+
+
+def close_speaking_window():
+    global speaking_window
+    if speaking_window:
+        #speaking_window.destroy()
+        speaking_window = None
 
 def main():
     HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
@@ -302,6 +320,10 @@ def main():
         set_globals(config)  # Set the global variables with the configuration
         start_message = config['start_message']  # Start message
 
+        # Start the speaking window thread
+        window_thread = threading.Thread(target=show_speaking_window, args=(model,), daemon=True)
+        window_thread.start()
+        
         # ============ GREETING PHASE ============
         if starting_model == 0:  # 0 = Server starts, 1 = Client starts
             print("DEBUG: AWAITING LISTEN SIGNAL")
@@ -468,6 +490,7 @@ def main():
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
+        close_speaking_window()
         print("Conexión cerrada correctamente.")
 
 if __name__ == "__main__":
