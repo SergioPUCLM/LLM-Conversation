@@ -368,6 +368,15 @@ def main():
             print("DEBUG: AWAITING SPEAK SIGNAL")
             data = recv_all(client_socket).decode('utf-8')  # Receive the SPEAK command
             server_msg = json.loads(data)
+
+            if server_msg['name'] == "personality":
+                print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
+                personality = server_msg['message']
+                messages[0] = {"role": "system", "content":personality}
+
+                data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
+                server_msg = json.loads(data)
+            
             if not server_msg['message'] == "SPEAK":
                 print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                 sys.exit()
@@ -398,6 +407,15 @@ def main():
             print("DEBUG: AWAITING SPEAK SIGNAL")
             data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
             server_msg = json.loads(data)
+
+            if server_msg['name'] == "personality":
+                print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
+                personality = server_msg['message']
+                messages[0] = {"role": "system", "content":personality}
+
+                data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
+                server_msg = json.loads(data)
+
             if not server_msg['message'] == "SPEAK":  # If the message is "SPEAK", start speaking
                 print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                 sys.exit()
@@ -463,6 +481,15 @@ def main():
                 print("DEBUG: AWAITING SPEAK SIGNAL")
                 data = recv_all(client_socket).decode('utf-8')  # Receive the SPEAK command
                 server_msg = json.loads(data)
+                
+                if server_msg['name'] == "personality":
+                    print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
+                    personality = server_msg['message']
+                    messages[0] = {"role": "system", "content":personality}
+
+                    data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
+                    server_msg = json.loads(data)
+
                 if not server_msg['message'] == "SPEAK":
                     print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                     sys.exit()

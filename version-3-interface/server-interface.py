@@ -127,16 +127,17 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     model2_new_personality = None  # New personality for the client
     if messages_left == CONVINCE_TIME:  # Halfway through convincing
         if winner == 0:  # Server wins, convince the client (halfway)
-            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
-        else:  # Client wins, convince the server (halfway)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
+        else:  # Client wins, convince the server (halfway)
+            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model2_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
     elif messages_left == CONVINCE_TIME_DEFINITIVE:  # Fully convinced
         if winner == 0:  # Server wins, convince the client (fully)
-            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model2_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
-        else:  # Client wins, convince the server (fully)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model1_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
+        else:  # Client wins, convince the server (fully)
+            model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model2_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
 
     if model2_new_personality is not None:
+        print("DEBUG: SENDING NEW PERSONALITY TO CLIENT")
         conn.sendall(json.dumps({  # Send the new personality to the client
             'name': "personality",  # Client reconizes personality messages as petitions to change personality
             'message': model2_new_personality
@@ -412,9 +413,10 @@ def main():
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
-    starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
-    winner = random.choice([0, 1])  # What model "wins" the debate (0 = Server, 1 = Client)
-
+    starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
+    #winner (0 = Server, 1 = Client)
+    winner = 0 # if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 0 
+    
     # ============ CONNECTION PHASE ============
     server_socket = init_server()
     conn, addr = server_socket.accept()
@@ -449,7 +451,7 @@ def main():
             sys.exit()
         
         # Start the speaking window thread
-        window_thread = threading.Thread(target=show_speaking_window, args=(starting_model,), daemon=True)
+        window_thread = threading.Thread(target=show_speaking_window, args=("Server",), daemon=True)
         window_thread.start()
 
         # ============ GREETING PHASE ============
@@ -494,16 +496,6 @@ def main():
 
         # ============ CONVERSATION PHASE ============
         while True:  # Loop to keep the conversation going
-            # Message count checks
-            remaining_messages -= 1
-            if remaining_messages <= 0:  # If we are out of messages, break the loop
-                print("DEBUG: NO MORE MESSAGES")
-                break
-            new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
-            if new_personality is not None:  # If we need to change the personality, do so
-                model1_personality = new_personality
-                messages[0] = {"role": "system", "content":model1_personality}
-            
             print("DEBUG: AWAITING LISTEN SIGNAL")
             # Receive signal to start listening
             data = recv_all(conn).decode('utf-8')
@@ -520,7 +512,7 @@ def main():
             print("DEBUG: SENT SPEAK SIGNAL")
 
             print("DEBUG: AWAITING STOP SIGNAL")
-             # Receive signal to stop listening
+            # Receive signal to stop listening
             data = recv_all(conn).decode('utf-8')
             client_msg = json.loads(data)
             if not client_msg['message'] == "STOP":
@@ -533,25 +525,18 @@ def main():
             print(f"Cliente ({model2_name}) dice: {message}")
             print('-' * 50)
             messages.append({"role": "user", "content": message})  # Append the client's message to the message history
-
-
+            
             # Message count checks
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
                 break
+            
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
                 messages[0] = {"role": "system", "content":model1_personality}
-            if remaining_messages == 1:  # A single message is left, send a message to the client informing them
-                time.sleep(0.1)  # Wait to avoid race conditions
-                conn.sendall(json.dumps({  # Send the end message to the client
-                    'name': "system",
-                    'message': "END-IN-ONE"
-                }).encode('utf-8'))
-
-
+            
             # Send a message to the client
             prompt = f"{client_msg['message']}\nTema: {topic}\nPersonalidad: {model1_personality}\nRespuesta:"
             messages.append({"role": "user", "content": prompt})  # Create a message to send to the model
@@ -559,6 +544,7 @@ def main():
             print(f"Server ({model1_name}):", response)
             print('-' * 50)
             messages.append({"role": "assistant", "content": response})  # Append our response to the message history
+
 
             send_listen(conn)  # Signal the client to start listening
             print("DEBUG: SENT LISTEN SIGNAL")
@@ -576,6 +562,28 @@ def main():
 
             send_stop(conn)  # Signal the client to stop listening
             print("DEBUG: SENT STOP SIGNAL")
+
+            # Message count checks
+            remaining_messages -= 1
+            if remaining_messages <= 0:  # If we are out of messages, break the loop
+                print("DEBUG: NO MORE MESSAGES")
+                break
+            
+            new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
+            if new_personality is not None:  # If we need to change the personality, do so
+                model1_personality = new_personality
+                messages[0] = {"role": "system", "content":model1_personality}
+            
+            # FIXME: DEBIDO A MUCHOS ERROES QUE HABIA ESTO NUNCA HA FUNCINADO POR LO QUE NO ESTA BIEN IMPLEMTAOD, AHORA QUE SI SE MANDA LA SEÑAL DA ERROR
+            # if remaining_messages == 1:  # A single message is left, send a message to the client informing them
+            #     time.sleep(0.1)  # Wait to avoid race conditions
+            #     conn.sendall(json.dumps({  # Send the end message to the client
+            #         'name': "system",
+            #         'message': "END-IN-ONE"
+            #     }).encode('utf-8'))
+
+
+
 
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
