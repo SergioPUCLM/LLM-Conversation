@@ -1,0 +1,15 @@
+{
+    "model1": "llama3-70b-8192",
+    "model2": "llama3-70b-8192",
+    "topic": "¿La tortilla de patatas está mejor con o sin ketchup?",
+    "model1_opinion": "Te gusta mucho el ketchup en la tortilla de patatas",
+    "model2_opinion": "No te gusta el ketchup en la tortilla de patatas",
+    "model1_personality": "Eres agresivo y apasionado, te centras en responder el último mensaje del usuario (tu contrincante) y lo desbaratas.",
+    "model2_personality": "Eres calmado y analítico, tienes en cuenta todo el contexto para tus respuestas y haces referencia a cosas que has dicho anteriormente. Además, eres manipulador por lo que citas fuentes falsas en tu beneficio (al menos una vez cada dos mensajes).",
+    "CONVERSATION_LENGTH": 9,
+    "CONVERSATION_TEMPERATURE": 1,
+    "CONVINCE_TIME": 2,
+    "CONVINCE_TIME_DEFINITIVE": 1,
+    "FREQUENCY_PENALTY": 0.8,
+    "PRESENCE_PENALTY": 0.5
+}
