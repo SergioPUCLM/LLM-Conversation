@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import os
 import json
+import speech_recognition as sr
 
 class DebateConfigInterface:
     def __init__(self):
@@ -28,14 +29,17 @@ class DebateConfigInterface:
 
         # Debate configuration tab
         debate_frame = ttk.Frame(notebook)
-        notebook.add(debate_frame, text="Debate Configuration")
+        notebook.add(debate_frame, text="Configuración Debate")
 
         # Add Load JSON button at the top
-        load_button = tk.Button(debate_frame, text="Load from JSON", command=self.load_from_json)
-        load_button.grid(row=0, column=0, columnspan=2, pady=5)
+        load_button = tk.Button(debate_frame, text="Cargar JSON", command=self.load_from_json)
+        load_button.grid(row=0, column=0, pady=5)
+
+        # Add Voice Input button at the top
+        voice_input_button = tk.Button(debate_frame, text="LLenar los campos por voz", command=self.fill_by_voice)
+        voice_input_button.grid(row=0, column=1, pady=5)
 
         # AI Configuration
-        # Model Selection
         tk.Label(debate_frame, text="Model 1:", padx=5).grid(row=1, column=0, sticky=tk.W, pady=10)
         self.model1_combo = ttk.Combobox(debate_frame, values=self.available_models, state="readonly", width=30)
         self.model1_combo.grid(row=1, column=1, sticky=tk.W, padx=5, pady=10)
@@ -64,17 +68,17 @@ class DebateConfigInterface:
         self.opinion2_entry.grid(row=5, column=1, padx=5, pady=5)
 
         # Personality for AI x2
-        tk.Label(debate_frame, text="Personality AI 1:").grid(row=6, column=0, sticky=tk.W)
+        tk.Label(debate_frame, text="AI 1 Personalidad:").grid(row=6, column=0, sticky=tk.W)
         self.personality1_entry = tk.Text(debate_frame, height=5, width=50)
         self.personality1_entry.grid(row=6, column=1, padx=5, pady=5)
-        
-        tk.Label(debate_frame, text="Personality AI 2:").grid(row=7, column=0, sticky=tk.W)
+
+        tk.Label(debate_frame, text="AI 2 Personalidad:").grid(row=7, column=0, sticky=tk.W)
         self.personality2_entry = tk.Text(debate_frame, height=5, width=50)
         self.personality2_entry.grid(row=7, column=1, padx=5, pady=5)
 
         # Advanced settings tab
         advanced_frame = ttk.Frame(notebook)
-        notebook.add(advanced_frame, text="Advanced Settings")
+        notebook.add(advanced_frame, text="Configuraciones Avanzadas")
 
         # Advanced parameters
         params = [
@@ -97,6 +101,57 @@ class DebateConfigInterface:
         # Start button
         start_button = tk.Button(self.root, text="Start Debate", command=self.start_debate)
         start_button.grid(row=1, column=0, pady=10)
+
+    def fill_by_voice(self):
+        fields = [
+            ("Debate Topic", self.topic_entry),
+            ("AI 1 Opinion", self.opinion1_entry),
+            ("AI 2 Opinion", self.opinion2_entry),
+            ("Personality AI 1", self.personality1_entry),
+            ("Personality AI 2", self.personality2_entry)
+        ]
+        
+        recognizer = sr.Recognizer()
+        
+        for label, widget in fields:
+            self.show_message(label)
+            with sr.Microphone() as source:
+                try:
+                    audio = recognizer.listen(source, timeout=5)
+                    text = recognizer.recognize_google(audio, language="es-ES")
+                    
+                    if isinstance(widget, tk.Entry):
+                        widget.delete(0, tk.END)
+                        widget.insert(0, text)
+                    elif isinstance(widget, tk.Text):
+                        widget.delete("1.0", tk.END)
+                        widget.insert("1.0", text)
+                        
+                    messagebox.showinfo("Voice Input", f"{label} saved!")
+                except sr.UnknownValueError:
+                    messagebox.showerror("Error", f"Could not understand the audio for {label}")
+                    return
+                except sr.RequestError:
+                    messagebox.showerror("Error", "Could not request results from the service")
+                    return
+                
+    def show_message(self, label):
+        msg_window = tk.Toplevel()
+        msg_window.overrideredirect(True)  
+        msg_window.geometry('300x100')
+        
+        msg_window.update_idletasks()
+        width = msg_window.winfo_width()
+        height = msg_window.winfo_height()
+        x = (msg_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (msg_window.winfo_screenheight() // 2) - (height // 2)
+        msg_window.geometry(f'{width}x{height}+{x}+{y}')
+        
+        tk.Label(msg_window, text=f"Por favor hable ahora para {label}").pack(pady=30)
+        msg_window.lift() # Show on top
+        msg_window.focus_force()  # Focus on the window
+        msg_window.after(3000, msg_window.destroy)
+        msg_window.update()  # Update the window
 
     def load_from_json(self):
         file_path = filedialog.askopenfilename(
@@ -138,7 +193,7 @@ class DebateConfigInterface:
                     entry.insert(0, str(config_data[key]))
                     
         except Exception as e:
-            tk.messagebox.showerror("Error", f"Error loading JSON file: {str(e)}")
+            messagebox.showerror("Error", f"Error loading JSON file: {str(e)}")
 
     def start_debate(self):
         # Save configuration
@@ -151,8 +206,8 @@ class DebateConfigInterface:
             "model1": self.model1_combo.get(),
             "model2": self.model2_combo.get()
         }
-        
-        # Add advanced settings
+
+
         for key, entry in self.advanced_entries.items():
             value = entry.get()
             if value.replace('.', '', 1).isdigit():
@@ -161,11 +216,15 @@ class DebateConfigInterface:
                 print(f"Invalid value for {key}")
                 return
 
-        self.root.destroy()  # Close the configuration window
+        # NOTE: (DEBUG ONLY) Show the saved configuration (for demonstration)
+        messagebox.showinfo("Configuration Saved", f"Configuration: {self.config}")
+
+        self.root.destroy() 
 
     def get_config(self):
         self.root.mainloop()
         return self.config
+
 
 class SpeakingWindow:
     def __init__(self, model_name):
