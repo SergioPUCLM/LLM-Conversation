@@ -4,6 +4,7 @@ numpy
 #Audio
 pyaudio
 wave
+SpeechRecognition # Iterface interaction
 
 #Interface
 tkintertable
