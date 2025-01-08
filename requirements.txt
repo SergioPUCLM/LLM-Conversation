@@ -9,6 +9,7 @@ SpeechRecognition # Iterface interaction
 #Interface
 tkintertable
 Pillow
+py-avataaars
 
 # APIs
 groq
