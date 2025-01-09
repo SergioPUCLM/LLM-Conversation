@@ -260,9 +260,10 @@ def speak(text):
         output_file = 'temp_speech.wav'
         text_to_speech(text, output_file)
         
+        speaking_window.update_avatar(is_open=False)
         # Play the audio (blocking)
         play_audio(output_file)
-        
+        speaking_window.update_avatar(is_open=True)
         # Clean up
         if os.path.exists(output_file):
             os.remove(output_file)

@@ -5,6 +5,8 @@ import os
 import json
 import speech_recognition as sr
 
+from avatar import create_avatar_random
+
 class DebateConfigInterface:
     def __init__(self):
         self.root = tk.Tk()
@@ -228,8 +230,10 @@ class DebateConfigInterface:
 
 class SpeakingWindow:
     def __init__(self, model_name):
+        self.model_name = model_name
+
         self.window = tk.Tk()
-        self.window.title(f"AI Speaking - {model_name}")
+        self.window.title(f"AI Speaking - {self.model_name}")
         self.window.geometry("800x600")
         
         # Configure grid weights
@@ -240,8 +244,11 @@ class SpeakingWindow:
         left_frame = ttk.Frame(self.window)
         left_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         
+        # Create avatar image
+        create_avatar_random(self.model_name)
+        # TOFIX: USE UPDATED AVATAR CREATION FUNCTION
         # Load avatar image
-        avatar_path = f"model-avatars/{model_name}.webp"
+        avatar_path = f"model-avatars/avatar_basic_{self.model_name}.png"
         if not os.path.exists(avatar_path):
             avatar_path = "model-avatars/default.jpg"
             
@@ -249,9 +256,9 @@ class SpeakingWindow:
         img = img.resize((300, 300))  # Fixed size
         photo = ImageTk.PhotoImage(img)
         
-        avatar_label = ttk.Label(left_frame, image=photo)
-        avatar_label.image = photo  # Keep reference
-        avatar_label.pack(expand=True)
+        self.avatar_label = ttk.Label(left_frame, image=photo)
+        self.avatar_label.image = photo  # Keep reference
+        self.avatar_label.pack(expand=True)
         
         # Right frame (Text boxes)
         right_frame = ttk.Frame(self.window)
@@ -274,3 +281,27 @@ class SpeakingWindow:
     def update_listening(self, text):
         self.listening_text.delete(1.0, tk.END)
         self.listening_text.insert(tk.END, text)
+
+    def update_avatar(self, is_open):
+        if is_open:
+            avatar_path = f"model-avatars/avatar_basic_{self.model_name}.png"
+            if not os.path.exists(avatar_path):
+                avatar_path = "model-avatars/default.jpg"
+                
+            img = Image.open(avatar_path)
+            img = img.resize((300, 300))
+        else:
+            avatar_path = f"model-avatars/avatar_open_{self.model_name}.png"
+            if not os.path.exists(avatar_path):
+                avatar_path = "model-avatars/default.jpg"
+                
+            img = Image.open(avatar_path)
+            img = img.resize((300, 300))
+
+        photo = ImageTk.PhotoImage(img)
+        self.avatar_label.configure(image=photo)
+        self.avatar_label.image = photo
+
+
+
+        
