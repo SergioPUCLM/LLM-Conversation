@@ -1,0 +1,21 @@
+python-dotenv
+numpy
+
+#Audio
+pyaudio
+wave
+SpeechRecognition # Iterface interaction
+
+#Interface
+tkintertable
+Pillow
+py-avataaars
+
+# APIs
+groq
+google-cloud-speech
+google-cloud-texttospeech
+google-auth
+
+# For older versions
+#pyttsx3
