@@ -6,8 +6,9 @@ import sys
 import time
 import wave
 import pyaudio
-import numpy as np
 import threading
+import signal
+import numpy as np
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
@@ -20,6 +21,7 @@ PRESENCE_PENALTY = None
 
 # global variable interface
 speaking_window = None
+program_pid = os.getpid()
 
 # global variables to control the audio
 frames = []
@@ -278,12 +280,25 @@ def show_speaking_window(model):
     global speaking_window
     speaking_window = SpeakingWindow(model)
     speaking_window.window.mainloop()
+    close_by_user_action()
 
+def close_by_user_action():
+    global speaking_window
+    if speaking_window:
+        if speaking_window.closed_by_user_action: 
+            speaking_window = None
+            os.kill(program_pid, signal.SIGINT)
 
 def close_speaking_window():
     global speaking_window
     if speaking_window:
-        #speaking_window.destroy()
+        speaking_window = None
+        speaking_window.window.destroy()
+
+def close_speaking_window():
+    global speaking_window
+    if speaking_window:
+        speaking_window.window.destroy()
         speaking_window = None
 
 def main():

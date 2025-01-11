@@ -6,9 +6,10 @@ import sys
 import time
 import wave
 import pyaudio
-import numpy as np
 import random
 import threading
+import signal
+import numpy as np
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
@@ -25,6 +26,7 @@ from interface import DebateConfigInterface, SpeakingWindow
 
 # global variable interface
 speaking_window = None
+program_pid = os.getpid()
 
 # global variables to control the audio
 frames = []
@@ -344,19 +346,36 @@ def show_speaking_window(model):
     global speaking_window
     speaking_window = SpeakingWindow(model)
     speaking_window.window.mainloop()
+    close_by_user_action()
 
+def close_by_user_action():
+    global speaking_window
+    if speaking_window:
+        if speaking_window.closed_by_user_action: 
+            speaking_window = None
+            os.kill(program_pid, signal.SIGINT)
 
 def close_speaking_window():
     global speaking_window
     if speaking_window:
-        #speaking_window.destroy()
         speaking_window = None
+        speaking_window.window.destroy()
 
 def main():
     # Initialize interface and get configuration
-    interface = DebateConfigInterface()
-    config = interface.get_config()
-    
+    try: 
+        config_interface = DebateConfigInterface()
+        config = config_interface.get_config()
+
+        # Check if the user closed the window
+        if config_interface.closed_by_user_action:
+            print("La ventana de configuración ha sido cerrada.")
+            sys.exit(0)            
+  
+    except Exception as e:
+        print(f"Error al obtener la configuración: {e}")
+        sys.exit(1)
+
     # Update global variables with configuration
     global CONVERSATION_LENGTH, CONVERSATION_TEMPERATURE, CONVINCE_TIME
     global CONVINCE_TIME_DEFINITIVE, FREQUENCY_PENALTY, PRESENCE_PENALTY
