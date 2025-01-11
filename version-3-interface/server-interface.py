@@ -355,11 +355,6 @@ def close_by_user_action():
             speaking_window = None
             os.kill(program_pid, signal.SIGINT)
 
-def close_speaking_window():
-    global speaking_window
-    if speaking_window:
-        speaking_window = None
-        speaking_window.window.destroy()
 
 def main():
     # Initialize interface and get configuration
@@ -613,7 +608,6 @@ def main():
     #except Exception as e:  # Handle any other exception
         #print("\nSe ha producido un error inesperado:", e)
     finally:  # Close the connection
-        close_speaking_window()
         conn.close()
         server_socket.close()
         print("Conexión cerrada correctamente.")
