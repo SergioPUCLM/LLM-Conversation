@@ -6,3 +6,4 @@ env
 google-credentials*
 *.wav
 __pycache__
+model-avatars
