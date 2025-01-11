@@ -227,6 +227,9 @@ class DebateConfigInterface:
                 print(f"Invalid value for {key}")
                 return
 
+        if self.config["CONVERSATION_LENGTH"] < 5:
+            self.config["CONVERSATION_LENGTH"] = 5
+            messagebox.showwarning("Warning", "Conversation length must be at least 5. Setting to 5.")
         # NOTE: (DEBUG ONLY) Show the saved configuration (for demonstration)
         messagebox.showinfo("Configuration Saved", f"Configuration: {self.config}")
 
