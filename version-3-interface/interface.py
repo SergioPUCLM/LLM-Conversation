@@ -11,6 +11,7 @@ class DebateConfigInterface:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("AI Debate Server Configuration")
+        self.root.resizable(False,False)
         self.config = {}
         self.available_models = [
             "gemma2-9b-it",
@@ -235,6 +236,7 @@ class SpeakingWindow:
         self.window = tk.Tk()
         self.window.title(f"AI Speaking - {self.model_name}")
         self.window.geometry("800x600")
+        self.window.resizable(False, False)
         
         # Configure grid weights
         self.window.grid_columnconfigure(0, weight=3)  # Avatar column
