@@ -326,7 +326,7 @@ def main():
         start_message = config['start_message']  # Start message
 
         # Start the speaking window thread
-        window_thread = threading.Thread(target=show_speaking_window, args=(model,), daemon=True)
+        window_thread = threading.Thread(target=show_speaking_window, args=("Client",), daemon=True)
         window_thread.start()
         
         # ============ GREETING PHASE ============
@@ -395,6 +395,7 @@ def main():
             response = generate_response(client, model, messages)  # Generate a response from the model
             print(f"Cliente ({name}):", response)
             print('-' * 50)
+            
             messages.append({"role": "assistant", "content": response})  # Append our message to the messages
 
             send_listen(client_socket)  # Signal the server to start listening
@@ -466,11 +467,6 @@ def main():
 
                 # Reply
 
-                response = generate_response(client, model, messages)  # Generate a response from the model
-                print(f"Cliente ({name}):", response)
-                print('-' * 50)
-                messages.append({"role": "assistant", "content": response})  # Append the response to the messages
-
                 send_listen(client_socket)  # Signal the server to start listening
                 print("DEBUG: SENT LISTEN SIGNAL")
 
@@ -502,7 +498,6 @@ def main():
                         personality = server_msg['message']
                         messages[0] = {"role": "system", "content":personality}
                         
-                        last_msg = True
                         data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
                         server_msg = json.loads(data)
 
@@ -523,7 +518,6 @@ def main():
                     personality = server_msg['message']
                     messages[0] = {"role": "system", "content":personality}
                     
-                    last_msg = True
                     data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
                     server_msg = json.loads(data)
 
@@ -531,6 +525,11 @@ def main():
                     print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                     sys.exit()
                 print("DEBUG: RECIEVED SPEAK SIGNAL")
+                
+                response = generate_response(client, model, messages)  # Generate a response from the model
+                print(f"Cliente ({name}):", response)
+                print('-' * 50)
+                messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
                 speak(response)  # Speak the response
 
