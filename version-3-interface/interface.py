@@ -1,9 +1,12 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from PIL import Image, ImageTk
+import sys
 import os
 import json
+
 import speech_recognition as sr
+import tkinter as tk
+
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image, ImageTk
 
 from avatar import create_avatar_random
 
@@ -12,6 +15,11 @@ class DebateConfigInterface:
         self.root = tk.Tk()
         self.root.title("AI Debate Server Configuration")
         self.root.resizable(False,False)
+
+        # Check if the window is closed with the close button
+        self.closed_by_user_action=False
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         self.config = {}
         self.available_models = [
             "gemma2-9b-it",
@@ -224,6 +232,11 @@ class DebateConfigInterface:
 
         self.root.destroy() 
 
+    def on_closing(self):
+        if messagebox.askokcancel("Salir", "¿Desea salir sin guardar la configuración?"):
+            self.closed_by_user_action=True
+            self.root.destroy()
+
     def get_config(self):
         self.root.mainloop()
         return self.config
@@ -237,7 +250,11 @@ class SpeakingWindow:
         self.window.title(f"AI Speaking - {self.model_name}")
         self.window.geometry("800x600")
         self.window.resizable(False, False)
-        
+
+        # Check if the window is closed with the close button
+        self.closed_by_user_action = False
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         # Configure grid weights
         self.window.grid_columnconfigure(0, weight=3)  # Avatar column
         self.window.grid_columnconfigure(1, weight=2)  # Text column
@@ -304,6 +321,8 @@ class SpeakingWindow:
         self.avatar_label.configure(image=photo)
         self.avatar_label.image = photo
 
-
-
+    def on_closing(self):
+        if messagebox.askokcancel("Salir", "¿Desea salir de la ventana de habla?"):
+            self.closed_by_user_action = True
+            self.window.destroy()
         
