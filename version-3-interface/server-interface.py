@@ -547,21 +547,21 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
-                if starting_model == 0:
-                    print("DEBUG:  SENDING END SIGNAL")
+                print("DEBUG:  SENDING END SIGNAL")
+                time.sleep(0.1)
+                conn.sendall(json.dumps({
+                    'name': "system",
+                    'message': "END"
+                }).encode('utf-8'))
+                break
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+                if not CONVERSATION_LENGTH%2 == 0:
+                    print("DEBUG: SENDING END")
                     time.sleep(0.1)
                     conn.sendall(json.dumps({
                         'name': "system",
-                        'message': "END"
+                        'message': "END-IN-ONE"
                     }).encode('utf-8'))
-                break
-            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-                print("DEBUG: SENDING END-IN-ONE MESSAGE")
-                time.sleep(0.1) # Small delay to avoid race conditions
-                conn.sendall(json.dumps({
-                    'name': "system",
-                    'message': "END-IN-ONE"
-                }).encode('utf-8'))
             
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
@@ -598,24 +598,25 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
+               
+                print("DEBUG:  SENDING END SIGNAL")
+                time.sleep(0.1)
+                conn.sendall(json.dumps({
+                    'name': "system",
+                    'message': "END"
+                }).encode('utf-8'))
+                break
+
                 
-                if starting_model == 0:
-                    print("DEBUG:  SENDING END SIGNAL")
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+                if not CONVERSATION_LENGTH%2 == 0:
+                    print("DEBUG: SENDING END-IN-ONE")
                     time.sleep(0.1)
                     conn.sendall(json.dumps({
                         'name': "system",
-                        'message': "END"
+                        'message': "END-IN-ONE"
                     }).encode('utf-8'))
-                
-                break
-            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-                print("DEBUG: SENDING END-IN-ONE MESSAGE")
-                time.sleep(0.1) # Small delay to avoid race conditions
-                conn.sendall(json.dumps({
-                    'name': "system",
-                    'message': "END-IN-ONE"
-                }).encode('utf-8'))
-            
+
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
