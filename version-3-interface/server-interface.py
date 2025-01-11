@@ -128,7 +128,7 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     """
     model1_new_personality = None  # New personality for the server
     model2_new_personality = None  # New personality for the client
-    if messages_left == CONVINCE_TIME:  # Halfway through convincing
+    if messages_left == CONVINCE_TIME and CONVINCE_TIME != 0:  # Halfway through convincing
         if winner == 0:  # Server wins, convince the client (halfway)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
         else:  # Client wins, convince the server (halfway)
@@ -430,9 +430,9 @@ def main():
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
-    starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
+    starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     #winner (0 = Server, 1 = Client)
-    winner = 1 # if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 0 
+    winner = 0  if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 1 
     
     # ============ CONNECTION PHASE ============
     server_socket = init_server()
@@ -547,8 +547,15 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
+                if starting_model == 0:
+                    print("DEBUG:  SENDING END SIGNAL")
+                    time.sleep(0.1)
+                    conn.sendall(json.dumps({
+                        'name': "system",
+                        'message': "END"
+                    }).encode('utf-8'))
                 break
-            elif remaining_messages == 1:  # A single message is left, send a message to the client informing them
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
                 print("DEBUG: SENDING END-IN-ONE MESSAGE")
                 time.sleep(0.1) # Small delay to avoid race conditions
                 conn.sendall(json.dumps({
@@ -591,15 +598,17 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
-
-                print("DEBUG:  SENDING END SIGNAL")
-                time.sleep(0.1)
-                conn.sendall(json.dumps({
-                    'name': "system",
-                    'message': "END"
-                }).encode('utf-8'))
+                
+                if starting_model == 0:
+                    print("DEBUG:  SENDING END SIGNAL")
+                    time.sleep(0.1)
+                    conn.sendall(json.dumps({
+                        'name': "system",
+                        'message': "END"
+                    }).encode('utf-8'))
+                
                 break
-            elif remaining_messages == 1:  # A single message is left, send a message to the client informing them
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
                 print("DEBUG: SENDING END-IN-ONE MESSAGE")
                 time.sleep(0.1) # Small delay to avoid race conditions
                 conn.sendall(json.dumps({
