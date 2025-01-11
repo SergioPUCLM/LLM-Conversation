@@ -6,14 +6,16 @@ import sys
 import time
 import wave
 import pyaudio
-import numpy as np
 import random
 import threading
+import signal
+import numpy as np
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
 
 from interface import DebateConfigInterface, SpeakingWindow
+
 
 # NOTE: NOW IN INTERFACE
 # CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
@@ -25,6 +27,7 @@ from interface import DebateConfigInterface, SpeakingWindow
 
 # global variable interface
 speaking_window = None
+program_pid = os.getpid()
 
 # global variables to control the audio
 frames = []
@@ -125,7 +128,7 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     """
     model1_new_personality = None  # New personality for the server
     model2_new_personality = None  # New personality for the client
-    if messages_left == CONVINCE_TIME:  # Halfway through convincing
+    if messages_left == CONVINCE_TIME and CONVINCE_TIME != 0:  # Halfway through convincing
         if winner == 0:  # Server wins, convince the client (halfway)
             model2_new_personality = f"Tu punto de vista original era: {model2_personality}. Sin embargo, los argumentos presentados han comenzado a persuadirte, y estás empezando a cambiar tu perspectiva hacia esta visión: {model1_opinion}. Muestra señales sutiles de estar convencido y ajusta gradualmente tu postura. Reconoce la fuerza de los argumentos del otro interlocutor, pero mantén algunas reservas. Mantén tus explicaciones breves y directas al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has comenzado a cambiar de opinión."
         else:  # Client wins, convince the server (halfway)
@@ -137,6 +140,7 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
             model1_new_personality = f"Tu punto de vista original era: {model1_personality}. Sin embargo, después de escuchar los argumentos presentados, ahora estás completamente convencido de este punto de vista: {model2_opinion}. Informa al otro interlocutor que has cambiado de opinión, expresa claramente tu acuerdo con su perspectiva y explica brevemente por qué sus argumentos te convencieron. Mantén tu explicación concisa y directa al grano. Comunica claramente tu cambio de postura y explica brevemente por qué has cambiado de opinión."
 
     if model2_new_personality is not None:
+        time.sleep(0.1) # Small delay to avoid race conditions
         print("DEBUG: SENDING NEW PERSONALITY TO CLIENT")
         conn.sendall(json.dumps({  # Send the new personality to the client
             'name': "personality",  # Client reconizes personality messages as petitions to change personality
@@ -344,19 +348,31 @@ def show_speaking_window(model):
     global speaking_window
     speaking_window = SpeakingWindow(model)
     speaking_window.window.mainloop()
+    close_by_user_action()
 
-
-def close_speaking_window():
+def close_by_user_action():
     global speaking_window
     if speaking_window:
-        #speaking_window.destroy()
-        speaking_window = None
+        if speaking_window.closed_by_user_action: 
+            speaking_window = None
+            os.kill(program_pid, signal.SIGINT)
+
 
 def main():
     # Initialize interface and get configuration
-    interface = DebateConfigInterface()
-    config = interface.get_config()
-    
+    try: 
+        config_interface = DebateConfigInterface()
+        config = config_interface.get_config()
+
+        # Check if the user closed the window
+        if config_interface.closed_by_user_action:
+            print("La ventana de configuración ha sido cerrada.")
+            sys.exit(0)            
+  
+    except Exception as e:
+        print(f"Error al obtener la configuración: {e}")
+        sys.exit(1)
+
     # Update global variables with configuration
     global CONVERSATION_LENGTH, CONVERSATION_TEMPERATURE, CONVINCE_TIME
     global CONVINCE_TIME_DEFINITIVE, FREQUENCY_PENALTY, PRESENCE_PENALTY
@@ -416,7 +432,7 @@ def main():
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
     starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     #winner (0 = Server, 1 = Client)
-    winner = 0 # if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 0 
+    winner = 0  if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 1 
     
     # ============ CONNECTION PHASE ============
     server_socket = init_server()
@@ -531,7 +547,21 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
+                print("DEBUG:  SENDING END SIGNAL")
+                time.sleep(0.1)
+                conn.sendall(json.dumps({
+                    'name': "system",
+                    'message': "END"
+                }).encode('utf-8'))
                 break
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+                if not CONVERSATION_LENGTH%2 == 0:
+                    print("DEBUG: SENDING END")
+                    time.sleep(0.1)
+                    conn.sendall(json.dumps({
+                        'name': "system",
+                        'message': "END-IN-ONE"
+                    }).encode('utf-8'))
             
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
@@ -568,33 +598,40 @@ def main():
             remaining_messages -= 1
             if remaining_messages <= 0:  # If we are out of messages, break the loop
                 print("DEBUG: NO MORE MESSAGES")
+               
+                print("DEBUG:  SENDING END SIGNAL")
+                time.sleep(0.1)
+                conn.sendall(json.dumps({
+                    'name': "system",
+                    'message': "END"
+                }).encode('utf-8'))
                 break
-            
+
+                
+            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+                if not CONVERSATION_LENGTH%2 == 0:
+                    print("DEBUG: SENDING END-IN-ONE")
+                    time.sleep(0.1)
+                    conn.sendall(json.dumps({
+                        'name': "system",
+                        'message': "END-IN-ONE"
+                    }).encode('utf-8'))
+
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
                 messages[0] = {"role": "system", "content":model1_personality}
             
-            # FIXME: DEBIDO A MUCHOS ERROES QUE HABIA ESTO NUNCA HA FUNCINADO POR LO QUE NO ESTA BIEN IMPLEMTAOD, AHORA QUE SI SE MANDA LA SEÑAL DA ERROR
-            # if remaining_messages == 1:  # A single message is left, send a message to the client informing them
-            #     time.sleep(0.1)  # Wait to avoid race conditions
-            #     conn.sendall(json.dumps({  # Send the end message to the client
-            #         'name': "system",
-            #         'message': "END-IN-ONE"
-            #     }).encode('utf-8'))
-
-
 
 
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
-    #except  json.JSONDecodeError:  # Handle JSON decoding error
-        #print("\nSe ha producido un error en la comunicación con el cliente")
-    #except Exception as e:  # Handle any other exception
-        #print("\nSe ha producido un error inesperado:", e)
+    except  json.JSONDecodeError:  # Handle JSON decoding error
+        print("\nSe ha producido un error en la comunicación con el cliente")
+    except Exception as e:  # Handle any other exception
+        print("\nSe ha producido un error inesperado:", e)
     finally:  # Close the connection
-        close_speaking_window()
         conn.close()
         server_socket.close()
         print("Conexión cerrada correctamente.")

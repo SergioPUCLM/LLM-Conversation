@@ -6,13 +6,15 @@ import sys
 import time
 import wave
 import pyaudio
-import numpy as np
 import threading
+import signal
+import numpy as np
 
 from dotenv import load_dotenv
 from google.cloud import texttospeech, speech
 
 from interface import SpeakingWindow
+
 
 CONVERSATION_TEMPERATURE = None
 FREQUENCY_PENALTY = None
@@ -20,6 +22,7 @@ PRESENCE_PENALTY = None
 
 # global variable interface
 speaking_window = None
+program_pid = os.getpid()
 
 # global variables to control the audio
 frames = []
@@ -278,13 +281,14 @@ def show_speaking_window(model):
     global speaking_window
     speaking_window = SpeakingWindow(model)
     speaking_window.window.mainloop()
+    close_by_user_action()
 
-
-def close_speaking_window():
+def close_by_user_action():
     global speaking_window
     if speaking_window:
-        #speaking_window.destroy()
-        speaking_window = None
+        if speaking_window.closed_by_user_action: 
+            speaking_window = None
+            os.kill(program_pid, signal.SIGINT)
 
 def main():
     HOST = 'localhost'  # Localhost to use in same pc. FOR ONLINE USE, DO NOT CONNECT TO EDUROAM WIFI! 
@@ -322,7 +326,7 @@ def main():
         start_message = config['start_message']  # Start message
 
         # Start the speaking window thread
-        window_thread = threading.Thread(target=show_speaking_window, args=(model,), daemon=True)
+        window_thread = threading.Thread(target=show_speaking_window, args=("Client",), daemon=True)
         window_thread.start()
         
         # ============ GREETING PHASE ============
@@ -358,7 +362,6 @@ def main():
           
             
             # Reply
-
             response = generate_response(client, model, messages)  # Generate a response from the model
             print(f"Cliente ({name}):", response)
             print('-' * 50)
@@ -370,14 +373,6 @@ def main():
             data = recv_all(client_socket).decode('utf-8')  # Receive the SPEAK command
             server_msg = json.loads(data)
 
-            if server_msg['name'] == "personality":
-                print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
-                personality = server_msg['message']
-                messages[0] = {"role": "system", "content":personality}
-
-                data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
-                server_msg = json.loads(data)
-            
             if not server_msg['message'] == "SPEAK":
                 print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                 sys.exit()
@@ -400,6 +395,7 @@ def main():
             response = generate_response(client, model, messages)  # Generate a response from the model
             print(f"Cliente ({name}):", response)
             print('-' * 50)
+            
             messages.append({"role": "assistant", "content": response})  # Append our message to the messages
 
             send_listen(client_socket)  # Signal the server to start listening
@@ -432,20 +428,20 @@ def main():
         while True:
             print("DEBUG: AWAITING LISTEN SIGNAL OR END SIGNAL OR END-IN-ONE SIGNAL OR PERSONALITY CHANGE")
             data = recv_all(client_socket).decode('utf-8')  # Receive the message from the server
-            client_msg = json.loads(data)  # Parse the data
+            server_msg = json.loads(data)  # Parse the data
             
             # System message handling
-            if client_msg['message'] == "END": # If we recieve an END, end the conversation
+            if server_msg['message'] == "END": # If we recieve an END, end the conversation
                 print("DEBUG: END SIGNAL RECIEVED, STOPPING CONVERSATION INMEDIADELY")
                 break
-            elif client_msg['message'] == "END-IN-ONE":  # If the message is "END-IN-ONE", end the conversation after the client's message
+            elif server_msg['message'] == "END-IN-ONE":  # If the message is "END-IN-ONE", end the conversation after the client's message
                     print("DEBUG: END-IN-ONE SIGNAL RECIEVED, STOPPING CONVERSATION AFTER ANOTHER MESSAGE")
                     last_msg = True
-            elif client_msg['name'] == 'personality' :  # If not, set the personality
+            elif server_msg['name'] == 'personality' :  # If not, set the personality
                 print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
-                personality = client_msg['message']
+                personality = server_msg['message']
                 messages[0] = {"role": "system", "content":personality}
-            elif client_msg['message'] == "LISTEN":  # If we are told to LISTEN (server turn)
+            elif server_msg['message'] == "LISTEN":  # If we are told to LISTEN (server turn)
                 print("DEBUG: RECIEVED LISTEN SIGNAL")
 
                 hear()  # Start listening
@@ -471,23 +467,57 @@ def main():
 
                 # Reply
 
-                response = generate_response(client, model, messages)  # Generate a response from the model
-                print(f"Cliente ({name}):", response)
-                print('-' * 50)
-                messages.append({"role": "assistant", "content": response})  # Append the response to the messages
-
                 send_listen(client_socket)  # Signal the server to start listening
                 print("DEBUG: SENT LISTEN SIGNAL")
 
                 print("DEBUG: AWAITING SPEAK SIGNAL")
-                data = recv_all(client_socket).decode('utf-8')  # Receive the SPEAK command
-                server_msg = json.loads(data)
                 
+
+                data = recv_all(client_socket).decode('utf-8')  # Receive the SPEAK command
+                try:
+                    server_msg = json.loads(data)
+                except json.JSONDecodeError:
+                    # Split the message in two parts because the server sends two messages at once 
+                    # (END or END-IN-ONE and CHANGE PERSONALITY)    
+                    split = data.split("}",1)
+                    server_msg = json.loads(split[0] + "}")
+
+                    # NOTE: CHECK PERSONALITY CHANGE, END OR END IN ONE
+                    if server_msg['message'] == "END": # If we recieve an END, end the conversation
+                        print("DEBUG: END SIGNAL RECIEVED, STOPPING CONVERSATION INMEDIADELY")
+                        break
+                
+                    elif server_msg['message'] == "END-IN-ONE":  # If the message is "END-IN-ONE", end the conversation after the client's message
+                        print("DEBUG: END-IN-ONE SIGNAL RECIEVED, STOPPING CONVERSATION AFTER ANOTHER MESSAGE")
+                 
+                        last_msg = True
+
+                    server_msg = json.loads(split[1])
+                    if server_msg['name'] == "personality":
+                        print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
+                        personality = server_msg['message']
+                        messages[0] = {"role": "system", "content":personality}
+                        
+                        data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
+                        server_msg = json.loads(data)
+
+                # NOTE: CHECK PERSONALITY CHANGE, END OR END IN ONE
+                if server_msg['message'] == "END": # If we recieve an END, end the conversation
+                    print("DEBUG: END SIGNAL RECIEVED, STOPPING CONVERSATION INMEDIADELY")
+                    break
+            
+                elif server_msg['message'] == "END-IN-ONE":  # If the message is "END-IN-ONE", end the conversation after the client's message
+                    print("DEBUG: END-IN-ONE SIGNAL RECIEVED, STOPPING CONVERSATION AFTER ANOTHER MESSAGE")
+                
+                    last_msg = True
+                    data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
+                    server_msg = json.loads(data)
+        
                 if server_msg['name'] == "personality":
                     print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
                     personality = server_msg['message']
                     messages[0] = {"role": "system", "content":personality}
-
+                    
                     data = recv_all(client_socket).decode('utf-8')  # Receive the LISTEN command
                     server_msg = json.loads(data)
 
@@ -495,6 +525,11 @@ def main():
                     print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
                     sys.exit()
                 print("DEBUG: RECIEVED SPEAK SIGNAL")
+                
+                response = generate_response(client, model, messages)  # Generate a response from the model
+                print(f"Cliente ({name}):", response)
+                print('-' * 50)
+                messages.append({"role": "assistant", "content": response})  # Append the response to the messages
 
                 speak(response)  # Speak the response
 
@@ -514,11 +549,11 @@ def main():
         print("\nSe ha cerrado el cliente manualmente.")
     except  json.JSONDecodeError:  # Handle JSON decoding error
         print("\nSe ha producido un error en la comunicación con el servidor")
+        print(split)
     except Exception as e:  # Handle any other exception
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
-        close_speaking_window()
         print("Conexión cerrada correctamente.")
 
 if __name__ == "__main__":
