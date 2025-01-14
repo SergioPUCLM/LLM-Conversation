@@ -22,12 +22,16 @@ program_pid = os.getpid()
 
 
 def _audio_callback(in_data, frame_count, time_info, status):
-    """Callback for non-blocking audio recording"""
+    """
+    Callback for non-blocking audio recording
+    """
     frames.append(in_data)
     return (in_data, pyaudio.paContinue)
 
 def hear():
-    """Non-blocking audio recording function"""
+    """
+    Non-blocking audio recording function
+    """
     global frames, audio_stream, p_audio
     
     # Reset frames array
@@ -50,7 +54,9 @@ def hear():
     audio_stream.start_stream()
 
 def stop_hearing():
-    """Stop recording and process the audio"""
+    """
+    Stop recording and process the audio
+    """
     global audio_stream, p_audio, frames
     
     if audio_stream:
@@ -90,7 +96,9 @@ def stop_hearing():
             return ""
 
 def speak(text):
-    """Blocking function to convert text to speech and play it"""
+    """
+    Blocking function to convert text to speech and play it
+    """
     speaking_window.update_speaking(text)
     try:
         # Convert text to speech
@@ -178,12 +186,18 @@ def play_audio(file_path):
     wf.close()
 
 def show_speaking_window(model):
+    """
+    Creates and displays a speaking window interface for the specified model.
+    """
     global speaking_window
     speaking_window = SpeakingWindow(model)
     speaking_window.window.mainloop()
     close_by_user_action()
 
 def close_by_user_action():
+    """
+    Close the speaking window and kill the program if the user closes the window.
+    """
     global speaking_window
     if speaking_window:
         if speaking_window.closed_by_user_action: 
