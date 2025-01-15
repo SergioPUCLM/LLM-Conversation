@@ -10,6 +10,7 @@ import groq
 from dotenv import load_dotenv
 
 from utils.common_utils import hear, stop_hearing, speak, show_speaking_window
+from utils.communication_utils import send_listen, send_speak, send_stop
 
 CONVERSATION_TEMPERATURE = None
 FREQUENCY_PENALTY = None
@@ -65,46 +66,6 @@ def set_globals(config):
     CONVERSATION_TEMPERATURE = config['conversation_temperature']
     FREQUENCY_PENALTY = config['frequency_penalty']
     PRESENCE_PENALTY = config['presence_penalty']
-
-    
-def send_listen(conn):  # Signal other model that we are about to speak and should start listening
-    """
-    Send a message asking to listen
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "LISTEN"
-    }).encode('utf-8'))
-
-
-def send_speak(conn):
-    """
-    Send a message asking to speak
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "SPEAK"
-    }).encode('utf-8'))
-
-
-def send_stop(conn):
-    """
-    Send a message asking to stop listening
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "STOP"
-    }).encode('utf-8'))
-
 
 
 def main():

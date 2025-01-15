@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from interface import DebateConfigInterface
 from utils.common_utils import hear, stop_hearing, speak, show_speaking_window
+from utils.communication_utils import send_listen, send_speak, send_stop
 
 # NOTE: NOW IN INTERFACE
 # CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
@@ -24,7 +25,10 @@ from utils.common_utils import hear, stop_hearing, speak, show_speaking_window
 
 
 load_dotenv()  # Load the environment variables
-client = groq.Groq(api_key=os.getenv('API_KEY_1'))
+api_key = os.getenv('API_KEY_1')  # Get the API key
+client = groq.Groq(api_key=api_key)
+
+print(api_key)
 
 
 def generate_response(client, model,messages):
@@ -134,45 +138,6 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
             'message': model2_new_personality
         }).encode('utf-8'))
     return model1_new_personality
-
-
-def send_listen(conn):  # Signal other model that we are about to speak and should start listening
-    """
-    Send a message asking to listen
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "LISTEN"
-    }).encode('utf-8'))
-
-
-def send_speak(conn):
-    """
-    Send a message asking to speak
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "SPEAK"
-    }).encode('utf-8'))
-
-
-def send_stop(conn):
-    """
-    Send a message asking to stop listening
-    Attributes:
-    - conn: connection object
-    """
-    time.sleep(0.1) # Small delay to avoid race conditions
-    conn.sendall(json.dumps({
-        'name': "system",
-        'message': "STOP"
-    }).encode('utf-8'))
 
 
 def main():
