@@ -185,12 +185,12 @@ def play_audio(file_path):
     p.terminate()
     wf.close()
 
-def show_speaking_window(model):
+def show_speaking_window(model, name):
     """
     Creates and displays a speaking window interface for the specified model.
     """
     global speaking_window
-    speaking_window = SpeakingWindow(model)
+    speaking_window = SpeakingWindow(model,speaker_name=name)
     speaking_window.window.mainloop()
     close_by_user_action()
 

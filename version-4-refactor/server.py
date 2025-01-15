@@ -28,8 +28,6 @@ load_dotenv()  # Load the environment variables
 api_key = os.getenv('API_KEY_1')  # Get the API key
 client = groq.Groq(api_key=api_key)
 
-print(api_key)
-
 
 def generate_response(client, model,messages):
     """
@@ -250,7 +248,7 @@ def main():
             sys.exit()
         
         # Start the speaking window thread
-        window_thread = threading.Thread(target=show_speaking_window, args=("Server",), daemon=True)
+        window_thread = threading.Thread(target=show_speaking_window, args=("Server",model1_name,), daemon=True)
         window_thread.start()
 
         # ============ GREETING PHASE ============

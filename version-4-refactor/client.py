@@ -17,7 +17,7 @@ FREQUENCY_PENALTY = None
 PRESENCE_PENALTY = None
 
 load_dotenv()  # Load the environment variables
-client = groq.Groq(api_key=os.getenv('API_KEY_1'))
+client = groq.Groq(api_key=os.getenv('API_KEY_2'))
 
 
 def generate_response(client, model,messages):
@@ -104,7 +104,7 @@ def main():
         start_message = config['start_message']  # Start message
 
         # Start the speaking window thread
-        window_thread = threading.Thread(target=show_speaking_window, args=("Client",), daemon=True)
+        window_thread = threading.Thread(target=show_speaking_window, args=("Client",name,), daemon=True)
         window_thread.start()
         
         # ============ GREETING PHASE ============
