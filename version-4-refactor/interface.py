@@ -246,7 +246,7 @@ class DebateConfigInterface:
 
 
 class SpeakingWindow:
-    def __init__(self, model_name):
+    def __init__(self, model_name, speaker_name):
         self.model_name = model_name
 
         self.window = tk.Tk()
@@ -268,7 +268,7 @@ class SpeakingWindow:
         
         # Create avatar image
         create_avatar_random(self.model_name)
-        # TOFIX: USE UPDATED AVATAR CREATION FUNCTION
+        
         # Load avatar image
         avatar_path = f"model-avatars/avatar_basic_{self.model_name}.png"
         if not os.path.exists(avatar_path):
@@ -281,7 +281,11 @@ class SpeakingWindow:
         self.avatar_label = ttk.Label(left_frame, image=photo)
         self.avatar_label.image = photo  # Keep reference
         self.avatar_label.pack(expand=True)
-        
+
+        # Add name label below avatar
+        self.name_label = tk.Label(self.window, text=speaker_name, font=('Arial', 12, 'bold'))
+        self.name_label.pack(after=self.avatar_label)
+
         # Right frame (Text boxes)
         right_frame = ttk.Frame(self.window)
         right_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
