@@ -236,11 +236,11 @@ def main():
 
             messages = cm.start_conversation(model_personality=model1_personality, model=model1, topic=topic, start_message=start_message, conn=conn)
             remaining_messages -= 1  # Decrease the remaining messages
-
-           
+    
         else:
-            messages = [{"role": "system", "content":model2_personality},
-                        {"role": "user", "content": topic}]
+            messages = [{"role": "system", "content":model1_personality},
+                        {"role": "user", "content": topic + "\n\n------------------------------\n"+ message["content"]}]
+   
         
 
         # ============ CONVERSATION PHASE ============
