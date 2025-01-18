@@ -1,4 +1,3 @@
-import os
 import sys
 import socket
 import json
@@ -6,70 +5,17 @@ import time
 import random
 import threading
 
-import groq
-
-from dotenv import load_dotenv
-
 from interface import DebateConfigInterface
-from utils.common_utils import hear, stop_hearing, speak, show_speaking_window
-from utils.communication_utils import send_listen, send_speak, send_stop
+from utils.common_utils import show_speaking_window, recv_all
+from utils.conversation_utils import ConversationManager
 
 # NOTE: NOW IN INTERFACE
-# CONVERSATION_LENGTH = 9  # Number of messages the conversation will last
-# CONVERSATION_TEMPERATURE = 1  # Temperature (0 - 2)
-# CONVINCE_TIME = 2  # Turns to start convince the other
-# CONVINCE_TIME_DEFINITIVE = 1  # Turns to convince the other fully
-# FREQUENCY_PENALTY = 0.8  # Avoid repeating the same words (0 - 2)
-# PRESENCE_PENALTY = 0.5  # Avoid repeating the same arguments (0 - 2)
-
-
-
-load_dotenv()  # Load the environment variables
-api_key = os.getenv('API_KEY_1')  # Get the API key
-client = groq.Groq(api_key=api_key)
-
-
-def generate_response(client, model,messages):
-    """
-    Generate a response from the model given the messages.
-    Attributes:
-    - client: Groq client
-    - model: model name
-    - messages: list of messages
-    Outputs:
-    - response: generated response
-    """
-    chat_completion = client.chat.completions.create(
-        messages=messages,  # List of messages
-        model=model,  # Model name
-        temperature=CONVERSATION_TEMPERATURE,  # Temperature (0 - 2)
-        frequency_penalty=FREQUENCY_PENALTY,  # Avoid repeating the same words (0 - 2)
-        presence_penalty=PRESENCE_PENALTY,  # Avoid repeating the same arguments (0 - 2)
-    )
-    return chat_completion.choices[0].message.content
-
-
-def generate_name(client, model, blacklisted=None):
-    """
-    Generate a name for an LLM model.
-    Attributes:
-    - client: Groq client
-    - model: model that will generate the name
-    - blacklisted: name to avoid (if specified)
-    Outputs:
-    - name: generated name
-    """
-    if blacklisted is None:
-        prompt = 'Date un nombre de persona en español de UNA SOLA PALABRA. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
-    else:
-        prompt = f'Date un nombre de persona en español de UNA SOLA PALABRA que no sea {blacklisted}. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
-    
-    message = [{"role": "user", "content": prompt}]
-    name = generate_response(client, model,message)
-    name = name.replace('\n', '')
-    name = ''.join(e for e in name if e.isalnum())
-    return name
-
+# CONVERSATION_LENGTH # Number of messages the conversation will last
+# CONVERSATION_TEMPERATURE# Temperature (0 - 2)
+# CONVINCE_TIME # Turns to start convince the other
+# CONVINCE_TIME_DEFINITIVE # Turns to convince the other fully
+# FREQUENCY_PENALTY  # Avoid repeating the same words (0 - 2)
+# PRESENCE_PENALTY # Avoid repeating the same arguments (0 - 2)
 
 def init_server():
     """
@@ -82,24 +28,6 @@ def init_server():
     server_socket.listen(1)  # Wait for a connection
     print(f"Servidor escuchando en {HOST}:{PORT}...")
     return server_socket
-
-
-def recv_all(conn):
-    """
-    Receive all the data from the client.
-    Attributes:
-    - conn: connection object
-    Outputs:
-    - data: received data
-    """
-    data = b''
-    while True:  # Loop to receive all the data
-        part = conn.recv(1024)
-        data += part  # Append the data
-        if len(part) < 1024:  # If the data is less than 1024 bytes, it means that there is no more data to receive
-            break
-    return data
-
 
 def check_personality_change(winner, messages_left, conn, model1_personality, model2_personality, model1_opinion, model2_opinion):
     """
@@ -137,70 +65,6 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
         }).encode('utf-8'))
     return model1_new_personality
 
-def start_conversation(model_personality, model, topic, start_message, conn):
-    """
-    Start the conversation with the client.
-    """
-    prompt = f"Context: 'Este es el primer mensaje de la conversación' \
-                \nTema: {topic}\
-                \nInstructiones: {start_message}\nTu opinión:"
-    messages = [{"role": "system", "content":model_personality},
-            {"role": "user", "content": prompt}]
-    response = generate_response(client, model, messages)
-
-    send_listen(conn)  # Signal the client to start listening
-    print("DEBUG: SENT LISTEN SIGNAL")
-
-    print("DEBUG: AWAITING SPEAK SIGNAL")
-    # Receive signal to start speaking
-    data = recv_all(conn).decode('utf-8')  
-    client_msg = json.loads(data)
-    if not client_msg['message'] == "SPEAK":
-        print(f"Error: No se reconoce el comando. Se esperaba 'SPEAK' y se recibió {client_msg['message']}")
-        sys.exit()
-    print("DEBUG: RECEIVED SPEAK SIGNAL")
-
-    speak(response)  # Speak the response
-
-    messages.append({"role": "assistant", "content": response})  # Append our response to the message history
-
-    send_stop(conn)  # Signal the client to stop listening
-    print("DEBUG: SENT STOP SIGNAL")
-
-    return messages
-
-def conversation_listen(conn):
-    """
-    Listen to the conversation with the client.
-    """
-    print("DEBUG: AWAITING LISTEN SIGNAL")
-    # Receive signal to start listening
-    data = recv_all(conn).decode('utf-8')
-    print(f"DEBUG: DATA: {data}")
-    client_msg = json.loads(data)
-    if not client_msg['message'] == "LISTEN":
-        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-        sys.exit()
-    print("DEBUG: RECEIVED LISTEN SIGNAL")
-
-    hear()  # Start listening
-
-    send_speak(conn)  # Signal the client to start speaking because we are listening
-    print("DEBUG: SENT SPEAK SIGNAL")
-
-    print("DEBUG: AWAITING STOP SIGNAL")
-    # Receive signal to stop listening
-    data = recv_all(conn).decode('utf-8')
-    client_msg = json.loads(data)
-    if not client_msg['message'] == "STOP":
-        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-        sys.exit()
-    print("DEBUG: RECEIVED STOP SIGNAL")
-
-    message = stop_hearing()  # Stop listening and process the audio
-
-
-    return ({"role": "user", "content": message}) 
 
 def check_message_count(remaining_messages, conn, starting_model):
     """
@@ -227,27 +91,26 @@ def check_message_count(remaining_messages, conn, starting_model):
 
     return False       
 
-def conversation_speak(conn, model, messages):
-    response = generate_response(client, model, messages)  # Generate a response
-    messages.append({"role": "assistant", "content": response})  # Append our response to the message history
-
-    send_listen(conn)  # Signal the client to start listening
-    print("DEBUG: SENT LISTEN SIGNAL")
-
-    print("DEBUG: AWAITING SPEAK SIGNAL")
-    # Receive signal to start speaking
-    data = recv_all(conn).decode('utf-8')
-    client_msg = json.loads(data)
-    if not client_msg['message'] == "SPEAK":
-        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-        sys.exit()
-    print("DEBUG: RECEIVED SPEAK SIGNAL")
-
-    speak(response)  # Speak the response
-
-    send_stop(conn)  # Signal the client to stop listening
-    print("DEBUG: SENT STOP SIGNAL")
-
+def generate_name(model, cm, blacklisted=None):
+    """
+    Generate a name for an LLM model.
+    Attributes:
+    - client: Groq client
+    - model: model that will generate the name
+    - blacklisted: name to avoid (if specified)
+    Outputs:
+    - name: generated name
+    """
+    if blacklisted is None:
+        prompt = 'Date un nombre de persona en español de UNA SOLA PALABRA. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
+    else:
+        prompt = f'Date un nombre de persona en español de UNA SOLA PALABRA que no sea {blacklisted}. No simules una respuesta, solo necesito un nombre. El nombre no puede ser un número ni un digito.'
+    
+    message = [{"role": "user", "content": prompt}]
+    name = cm.generate_response(model,message)
+    name = name.replace('\n', '')
+    name = ''.join(e for e in name if e.isalnum())
+    return name
 
 def main():
     # Initialize interface and get configuration
@@ -316,9 +179,11 @@ def main():
         'Este es el inicio de la conversacion, por lo que no puedes hacer referencia a '
         'interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
     )
+    
+    cm = ConversationManager(CONVERSATION_TEMPERATURE, FREQUENCY_PENALTY, PRESENCE_PENALTY )  # Initialize the conversation manager
 
-    model1_name = generate_name(client, model1)  # Generate a name for the server model
-    model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
+    model1_name = generate_name(model1,cm)  # Generate a name for the server model
+    model2_name = generate_name(model2, cm, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
     starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
@@ -368,7 +233,7 @@ def main():
         
         if starting_model == 0: # We start (Send a greeting to client)
 
-            messages = start_conversation(model_personality=model1_personality, model=model1, topic=topic, start_message=start_message, conn=conn)
+            messages = cm.start_conversation(model_personality=model1_personality, model=model1, topic=topic, start_message=start_message, conn=conn)
             remaining_messages -= 1  # Decrease the remaining messages
 
            
@@ -380,7 +245,7 @@ def main():
         # ============ CONVERSATION PHASE ============
         while True:  # Loop to keep the conversation going
             # Listen client
-            message = conversation_listen(conn)
+            message = cm.conversation_listen(conn)
             messages.append(message)  # Append the message to the message history
             remaining_messages -= 1
 
@@ -394,7 +259,7 @@ def main():
                 messages[0] = {"role": "system", "content":model1_personality}
             
             # Speak to client
-            conversation_speak(conn, model1, messages)
+            cm.conversation_speak(conn, model1, messages)
 
             # Message count checks
             remaining_messages -= 1
