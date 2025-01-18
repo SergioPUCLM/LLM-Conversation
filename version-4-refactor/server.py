@@ -227,6 +227,28 @@ def check_message_count(remaining_messages, conn, starting_model):
 
     return False       
 
+def conversation_speak(conn, model, messages):
+    response = generate_response(client, model, messages)  # Generate a response
+    messages.append({"role": "assistant", "content": response})  # Append our response to the message history
+
+    send_listen(conn)  # Signal the client to start listening
+    print("DEBUG: SENT LISTEN SIGNAL")
+
+    print("DEBUG: AWAITING SPEAK SIGNAL")
+    # Receive signal to start speaking
+    data = recv_all(conn).decode('utf-8')
+    client_msg = json.loads(data)
+    if not client_msg['message'] == "SPEAK":
+        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
+        sys.exit()
+    print("DEBUG: RECEIVED SPEAK SIGNAL")
+
+    speak(response)  # Speak the response
+
+    send_stop(conn)  # Signal the client to stop listening
+    print("DEBUG: SENT STOP SIGNAL")
+
+
 def main():
     # Initialize interface and get configuration
     try: 
@@ -371,27 +393,8 @@ def main():
                 model1_personality = new_personality
                 messages[0] = {"role": "system", "content":model1_personality}
             
-            response = generate_response(client, model1, messages)  # Generate a response
-
-            messages.append({"role": "assistant", "content": response})  # Append our response to the message history
-
-
-            send_listen(conn)  # Signal the client to start listening
-            print("DEBUG: SENT LISTEN SIGNAL")
-
-            print("DEBUG: AWAITING SPEAK SIGNAL")
-            # Receive signal to start speaking
-            data = recv_all(conn).decode('utf-8')
-            client_msg = json.loads(data)
-            if not client_msg['message'] == "SPEAK":
-                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-                sys.exit()
-            print("DEBUG: RECEIVED SPEAK SIGNAL")
-
-            speak(response)  # Speak the response
-
-            send_stop(conn)  # Signal the client to stop listening
-            print("DEBUG: SENT STOP SIGNAL")
+            # Speak to client
+            conversation_speak(conn, model1, messages)
 
             # Message count checks
             remaining_messages -= 1
@@ -404,8 +407,6 @@ def main():
                 model1_personality = new_personality
                 messages[0] = {"role": "system", "content":model1_personality}
             
-
-
 
     except KeyboardInterrupt:  # Handle the keyboard interruption
         print("\nSe ha cerrado el servidor manualmente.")
