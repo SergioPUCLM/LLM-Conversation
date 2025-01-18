@@ -137,6 +137,37 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
         }).encode('utf-8'))
     return model1_new_personality
 
+def start_conversation(model_personality, model, topic, start_message, conn):
+    """
+    fdf
+    """
+    prompt = f"Context: 'Este es el primer mensaje de la conversación' \
+                \nTema: {topic}\
+                \nInstructiones: {start_message}\nTu opinión:"
+    messages = [{"role": "system", "content":model_personality},
+            {"role": "user", "content": prompt}]
+    response = generate_response(client, model, messages)
+
+    send_listen(conn)  # Signal the client to start listening
+    print("DEBUG: SENT LISTEN SIGNAL")
+
+    print("DEBUG: AWAITING SPEAK SIGNAL")
+    # Receive signal to start speaking
+    data = recv_all(conn).decode('utf-8')  
+    client_msg = json.loads(data)
+    if not client_msg['message'] == "SPEAK":
+        print(f"Error: No se reconoce el comando. Se esperaba 'SPEAK' y se recibió {client_msg['message']}")
+        sys.exit()
+    print("DEBUG: RECEIVED SPEAK SIGNAL")
+
+    speak(response)  # Speak the response
+
+    messages.append({"role": "assistant", "content": response})  # Append our response to the message history
+
+    send_stop(conn)  # Signal the client to stop listening
+    print("DEBUG: SENT STOP SIGNAL")
+
+    return messages
 
 def main():
     # Initialize interface and get configuration
@@ -210,7 +241,7 @@ def main():
     model2_name = generate_name(client, model2, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
-    starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
+    starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     #winner (0 = Server, 1 = Client)
     winner = 0  if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 1 
     
@@ -256,36 +287,11 @@ def main():
         print('-' * 50)
         
         if starting_model == 0: # We start (Send a greeting to client)
-            prompt = f"Context: 'Este es el primer mensaje de la conversación' \
-                    \nTema: {topic}\
-                    \nInstructiones: {start_message}\nTu opinión:"
-            messages = [{"role": "system", "content":model1_personality},
-                        {"role": "user", "content": prompt}]
-            response = generate_response(client, model1, messages)
 
-            print(f"Server ({model1_name}) dice:", response)
-            print('-' * 50)
-
-            send_listen(conn)  # Signal the client to start listening
-            print("DEBUG: SENT LISTEN SIGNAL")
-            
-            print("DEBUG: AWAITING SPEAK SIGNAL")
-            # Receive signal to start speaking
-            data = recv_all(conn).decode('utf-8')  
-            client_msg = json.loads(data)
-            if not client_msg['message'] == "SPEAK":
-                print(f"Error: No se reconoce el comando. Se esperaba 'SPEAK' y se recibió {client_msg['message']}")
-                sys.exit()
-            print("DEBUG: RECEIVED SPEAK SIGNAL")
-
-            speak(response)  # Speak the response
-
-            messages.append({"role": "assistant", "content": response})  # Append our response to the message history
+            messages = start_conversation(model_personality=model1_personality, model=model1, topic=topic, start_message=start_message, conn=conn)
             remaining_messages -= 1  # Decrease the remaining messages
 
-            send_stop(conn)  # Signal the client to stop listening
-            print("DEBUG: SENT STOP SIGNAL")
-
+           
         else:
             messages = [{"role": "system", "content":model2_personality},
                         {"role": "user", "content": topic}]
