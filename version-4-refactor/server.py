@@ -67,7 +67,7 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
     return model1_new_personality
 
 
-def check_message_count(remaining_messages, conn, starting_model):
+def check_message_count(remaining_messages, conn):
     """
     Check the remaining messages and send a signal to the client if needed.
     """
@@ -81,14 +81,14 @@ def check_message_count(remaining_messages, conn, starting_model):
         }).encode('utf-8'))
         return True
 
-    elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-        if not CONVERSATION_LENGTH%2 == 0:
-            print("DEBUG: SENDING END")
-            time.sleep(0.1)
-            conn.sendall(json.dumps({
-                'name': "system",
-                'message': "END-IN-ONE"
-            }).encode('utf-8'))
+    # elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+    #     if not CONVERSATION_LENGTH%2 == 0:
+    #         print("DEBUG: SENDING END")
+    #         time.sleep(0.1)
+    #         conn.sendall(json.dumps({
+    #             'name': "system",
+    #             'message': "END-IN-ONE"
+    #         }).encode('utf-8'))
 
     return False       
 
@@ -251,7 +251,7 @@ def main():
             remaining_messages -= 1
 
             # Message count checks
-            if check_message_count(remaining_messages, conn, starting_model):
+            if check_message_count(remaining_messages, conn):
                 break
 
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
@@ -265,7 +265,7 @@ def main():
             # Message count checks
             remaining_messages -= 1
             
-            if check_message_count(remaining_messages, conn, starting_model):
+            if check_message_count(remaining_messages, conn):
                 break
 
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
