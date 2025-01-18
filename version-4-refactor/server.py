@@ -139,7 +139,7 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
 
 def start_conversation(model_personality, model, topic, start_message, conn):
     """
-    fdf
+    Start the conversation with the client.
     """
     prompt = f"Context: 'Este es el primer mensaje de la conversación' \
                 \nTema: {topic}\
@@ -168,6 +168,64 @@ def start_conversation(model_personality, model, topic, start_message, conn):
     print("DEBUG: SENT STOP SIGNAL")
 
     return messages
+
+def conversation_listen(conn):
+    """
+    Listen to the conversation with the client.
+    """
+    print("DEBUG: AWAITING LISTEN SIGNAL")
+    # Receive signal to start listening
+    data = recv_all(conn).decode('utf-8')
+    print(f"DEBUG: DATA: {data}")
+    client_msg = json.loads(data)
+    if not client_msg['message'] == "LISTEN":
+        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
+        sys.exit()
+    print("DEBUG: RECEIVED LISTEN SIGNAL")
+
+    hear()  # Start listening
+
+    send_speak(conn)  # Signal the client to start speaking because we are listening
+    print("DEBUG: SENT SPEAK SIGNAL")
+
+    print("DEBUG: AWAITING STOP SIGNAL")
+    # Receive signal to stop listening
+    data = recv_all(conn).decode('utf-8')
+    client_msg = json.loads(data)
+    if not client_msg['message'] == "STOP":
+        print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
+        sys.exit()
+    print("DEBUG: RECEIVED STOP SIGNAL")
+
+    message = stop_hearing()  # Stop listening and process the audio
+
+
+    return ({"role": "user", "content": message}) 
+
+def check_message_count(remaining_messages, conn, starting_model):
+    """
+    Check the remaining messages and send a signal to the client if needed.
+    """
+    if remaining_messages <= 0:  # If we are out of messages, break the loop
+        print("DEBUG: NO MORE MESSAGES")
+        print("DEBUG:  SENDING END SIGNAL")
+        time.sleep(0.1)
+        conn.sendall(json.dumps({
+            'name': "system",
+            'message': "END"
+        }).encode('utf-8'))
+        return True
+
+    elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
+        if not CONVERSATION_LENGTH%2 == 0:
+            print("DEBUG: SENDING END")
+            time.sleep(0.1)
+            conn.sendall(json.dumps({
+                'name': "system",
+                'message': "END-IN-ONE"
+            }).encode('utf-8'))
+
+    return False       
 
 def main():
     # Initialize interface and get configuration
@@ -299,67 +357,22 @@ def main():
 
         # ============ CONVERSATION PHASE ============
         while True:  # Loop to keep the conversation going
-            print("DEBUG: AWAITING LISTEN SIGNAL")
-            # Receive signal to start listening
-            data = recv_all(conn).decode('utf-8')
-            print(f"DEBUG: DATA: {data}")
-            client_msg = json.loads(data)
-            if not client_msg['message'] == "LISTEN":
-                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-                sys.exit()
-            print("DEBUG: RECEIVED LISTEN SIGNAL")
-
-            hear()  # Start listening
-
-            send_speak(conn)  # Signal the client to start speaking because we are listening
-            print("DEBUG: SENT SPEAK SIGNAL")
-
-            print("DEBUG: AWAITING STOP SIGNAL")
-            # Receive signal to stop listening
-            data = recv_all(conn).decode('utf-8')
-            client_msg = json.loads(data)
-            if not client_msg['message'] == "STOP":
-                print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
-                sys.exit()
-            print("DEBUG: RECEIVED STOP SIGNAL")
-
-            message = stop_hearing()  # Stop listening and process the audio
-
-            print(f"Cliente ({model2_name}) dice: {message}")
-            print('-' * 50)
-            messages.append({"role": "user", "content": message})  # Append the client's message to the message history
-            
-            # Message count checks
+            # Listen client
+            message = conversation_listen(conn)
+            messages.append(message)  # Append the message to the message history
             remaining_messages -= 1
-            if remaining_messages <= 0:  # If we are out of messages, break the loop
-                print("DEBUG: NO MORE MESSAGES")
-                print("DEBUG:  SENDING END SIGNAL")
-                time.sleep(0.1)
-                conn.sendall(json.dumps({
-                    'name': "system",
-                    'message': "END"
-                }).encode('utf-8'))
+
+            # Message count checks
+            if check_message_count(remaining_messages, conn, starting_model):
                 break
-            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-                if not CONVERSATION_LENGTH%2 == 0:
-                    print("DEBUG: SENDING END")
-                    time.sleep(0.1)
-                    conn.sendall(json.dumps({
-                        'name': "system",
-                        'message': "END-IN-ONE"
-                    }).encode('utf-8'))
-            
+
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
                 model1_personality = new_personality
                 messages[0] = {"role": "system", "content":model1_personality}
             
-            # Send a message to the client
-            prompt = f"{client_msg['message']}\nTema: {topic}\nPersonalidad: {model1_personality}\nRespuesta:"
-            messages.append({"role": "user", "content": prompt})  # Create a message to send to the model
             response = generate_response(client, model1, messages)  # Generate a response
-            print(f"Server ({model1_name}):", response)
-            print('-' * 50)
+
             messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
 
@@ -382,26 +395,9 @@ def main():
 
             # Message count checks
             remaining_messages -= 1
-            if remaining_messages <= 0:  # If we are out of messages, break the loop
-                print("DEBUG: NO MORE MESSAGES")
-               
-                print("DEBUG:  SENDING END SIGNAL")
-                time.sleep(0.1)
-                conn.sendall(json.dumps({
-                    'name': "system",
-                    'message': "END"
-                }).encode('utf-8'))
+            
+            if check_message_count(remaining_messages, conn, starting_model):
                 break
-
-                
-            elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-                if not CONVERSATION_LENGTH%2 == 0:
-                    print("DEBUG: SENDING END-IN-ONE")
-                    time.sleep(0.1)
-                    conn.sendall(json.dumps({
-                        'name': "system",
-                        'message': "END-IN-ONE"
-                    }).encode('utf-8'))
 
             new_personality = check_personality_change(winner, remaining_messages, conn, model1_personality, model2_personality, model1_opinion, model2_opinion)
             if new_personality is not None:  # If we need to change the personality, do so
