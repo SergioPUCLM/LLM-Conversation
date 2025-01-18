@@ -6,7 +6,8 @@ import random
 import threading
 
 from interface import DebateConfigInterface
-from utils.common_utils import show_speaking_window, recv_all
+from utils.common_utils import show_speaking_window
+from utils.communication_utils import recv_all
 from utils.conversation_utils import ConversationManager
 
 # NOTE: NOW IN INTERFACE

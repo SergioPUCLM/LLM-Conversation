@@ -4,8 +4,8 @@ import sys
 import json
 from dotenv import load_dotenv
 
-from utils.communication_utils import send_listen, send_speak, send_stop
-from utils.common_utils import hear, stop_hearing, speak, recv_all
+from utils.communication_utils import send_listen, send_speak, send_stop, recv_all
+from utils.common_utils import hear, stop_hearing, speak
 
 
 class ConversationManager:
