@@ -42,13 +42,22 @@ class DebateConfigInterface:
         debate_frame = ttk.Frame(notebook)
         notebook.add(debate_frame, text="Configuración Debate")
 
-        # Add Load JSON button at the top
-        load_button = tk.Button(debate_frame, text="Cargar JSON", command=self.load_from_json)
-        load_button.grid(row=0, column=0, pady=5)
+        # Create a frame for the buttons
+        button_frame = tk.Frame(debate_frame)
+        button_frame.grid(row=0, column=0, columnspan=2, pady=5)
+
+        # Add Load and Save JSON buttons at the top
+        load_button = tk.Button(button_frame, text="Cargar JSON", command=self.load_from_json)
+        load_button.pack(side=tk.LEFT, padx=5)
+
+        # Add Save JSON button at the top
+        save_button = tk.Button(button_frame, text="Guardar JSON", command=self.save_to_json)
+        save_button.pack(side=tk.LEFT, padx=5)
 
         # Add Voice Input button at the top
-        voice_input_button = tk.Button(debate_frame, text="LLenar los campos por voz", command=self.fill_by_voice)
-        voice_input_button.grid(row=0, column=1, pady=5)
+        voice_input_button = tk.Button(button_frame, text="LLenar los campos por voz", command=self.fill_by_voice)
+        voice_input_button.pack(side=tk.LEFT, padx=5)
+
 
         # AI Configuration
         tk.Label(debate_frame, text="Model 1:", padx=5).grid(row=1, column=0, sticky=tk.W, pady=10)
@@ -95,7 +104,7 @@ class DebateConfigInterface:
         params = [
             ("Conversation Length", "CONVERSATION_LENGTH", "9"),
             ("Temperature", "CONVERSATION_TEMPERATURE", "1"),
-            ("Convince Time", "CONVINCE_TIME", "2"),
+            ("Convince Time", "CONVINCE_TIME", "3"),
             ("Convince Time Definitive", "CONVINCE_TIME_DEFINITIVE", "1"),
             ("Frequency Penalty", "FREQUENCY_PENALTY", "0.8"),
             ("Presence Penalty", "PRESENCE_PENALTY", "0.5")
@@ -163,6 +172,32 @@ class DebateConfigInterface:
         msg_window.focus_force()  # Focus on the window
         msg_window.after(3000, msg_window.destroy)
         msg_window.update()  # Update the window
+
+    def save_to_json(self):
+        config = {
+            "model1": self.model1_combo.get(),
+            "model2": self.model2_combo.get(),
+            "topic": self.topic_entry.get(),
+            "model1_opinion": self.opinion1_entry.get(),
+            "model2_opinion": self.opinion2_entry.get(),
+            "model1_personality": self.personality1_entry.get("1.0", tk.END).strip(),
+            "model2_personality": self.personality2_entry.get("1.0", tk.END).strip(),
+            "CONVERSATION_LENGTH": int(self.advanced_entries["CONVERSATION_LENGTH"].get()),
+            "CONVERSATION_TEMPERATURE": float(self.advanced_entries["CONVERSATION_TEMPERATURE"].get()),
+            "CONVINCE_TIME": int(self.advanced_entries["CONVINCE_TIME"].get()),
+            "CONVINCE_TIME_DEFINITIVE": int(self.advanced_entries["CONVINCE_TIME_DEFINITIVE"].get()),
+            "FREQUENCY_PENALTY": float(self.advanced_entries["FREQUENCY_PENALTY"].get()),
+            "PRESENCE_PENALTY": float(self.advanced_entries["PRESENCE_PENALTY"].get())
+        }
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if file_path:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
 
     def load_from_json(self):
         file_path = filedialog.askopenfilename(
