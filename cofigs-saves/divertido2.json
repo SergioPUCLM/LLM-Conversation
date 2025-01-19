@@ -1,0 +1,15 @@
+{
+    "model1": "llama3-70b-8192",
+    "model2": "llama3-70b-8192",
+    "topic": "¿Qué nombre es mejor?",
+    "model1_opinion": "Piensas que tu nombre es el mejor",
+    "model2_opinion": "Piensas que tun nombre es el mejor",
+    "model1_personality": "Eres agresivo y desprecias al contrincante",
+    "model2_personality": "Te pones nervioso facilmente y eres tartamudo",
+    "CONVERSATION_LENGTH": 9,
+    "CONVERSATION_TEMPERATURE": 1.0,
+    "CONVINCE_TIME": 3,
+    "CONVINCE_TIME_DEFINITIVE": 1,
+    "FREQUENCY_PENALTY": 0.8,
+    "PRESENCE_PENALTY": 0.5
+}
