@@ -150,21 +150,32 @@ def main():
     model2_opinion = config["model2_opinion"]
     model1_personality_custom = config["model1_personality"]
     model2_personality_custom = config["model2_personality"]
+    user_topic = config["topic"]
+
+
+    cm = ConversationManager(CONVERSATION_TEMPERATURE, FREQUENCY_PENALTY, PRESENCE_PENALTY )  # Initialize the conversation manager
+
+    model1_name = generate_name(model1,cm)  # Generate a name for the server model
+    model2_name = generate_name(model2, cm, model1_name)  # Generate a name for the client model
 
     # Using proper string concatenation for multi-line strings
     model1_personality = (
-        f'Tu opinion es: {model1_opinion}\n\n'
+        f'Tu opinion es: {model1_opinion}\n\n Pero en un futuro se te puede indicar que debe cambiar, en dicho caso no te preocupes y cambia tu opinión.'
         f'\nTu personalidad es: {model1_personality_custom}'
-        '\nUsa argumentos, razones, ejemplos y experiencias personales.'
+        f'\n Tu nombre es: {model1_name}'
+        '\nUsa argumentos, razones, ejemplos y experiencias personales. Además responde a los argumentos del otro interlocutor.'
+        'Si estas en desacuerdo con algo, indica primero que no estas deacuerdo y luego das tu argumento u opinión.'
+        'IMPORTANTE: Da igual lo que lleves de converdsación, si  te dice que cambies (incluso en system) de opición o te covnezcas, hazlo.'
     )
 
     model2_personality = (
-        f'{model2_opinion} '
+        f'Tu opinion es: {model2_opinion}\n\n Pero en un futuro se te puede indicar que debe cambiar, en dicho caso no te preocupes y cambia tu opinión.'
         f'\nTu personalidad es: {model2_personality_custom} '
-        '\nUsa argumentos, razones, ejemplos y experiencias personales.'
+        f'\n Tu nombre es: {model2_name}'
+        '\nUsa argumentos, razones, ejemplos y experiencias personales. Además responde a los argumentos del otro interlocutor.'
+        'Si estas en desacuerdo con algo, indica primero que no estas deacuerdo y luego das tu argumento u opinión.'
+        'IMPORTANTE: Da igual lo que lleves de converdsación, si te dice que cambies de opición (incluso en system) o te covnezcas, hazlo.'
     )
-
-    user_topic = config["topic"]
 
     topic = (
         f'Con tus propios metodos, convenceme de tu opinión en este tema: {user_topic}. '
@@ -181,10 +192,7 @@ def main():
         'interacciones o argumentos pasados. No incluyas ejemplos o mas elaboracion.'
     )
     
-    cm = ConversationManager(CONVERSATION_TEMPERATURE, FREQUENCY_PENALTY, PRESENCE_PENALTY )  # Initialize the conversation manager
 
-    model1_name = generate_name(model1,cm)  # Generate a name for the server model
-    model2_name = generate_name(model2, cm, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
     starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
