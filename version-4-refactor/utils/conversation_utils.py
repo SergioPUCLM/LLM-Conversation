@@ -52,23 +52,21 @@ class ConversationManager:
         response = self.generate_response(model, messages)
 
         send_listen(conn)  # Signal the client to start listening
-        print("DEBUG: SENT LISTEN SIGNAL")
 
-        print("DEBUG: AWAITING SPEAK SIGNAL")
         # Receive signal to start speaking
         data = recv_all(conn).decode('utf-8')  
         client_msg = json.loads(data)
         if not client_msg['message'] == "SPEAK":
             print(f"Error: No se reconoce el comando. Se esperaba 'SPEAK' y se recibió {client_msg['message']}")
             sys.exit()
-        print("DEBUG: RECEIVED SPEAK SIGNAL")
+
 
         speak(response, self.change_voice)  # Speak the response
 
         messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
         send_stop(conn)  # Signal the client to stop listening
-        print("DEBUG: SENT STOP SIGNAL")
+
 
         return messages
 
@@ -76,29 +74,23 @@ class ConversationManager:
         """
         Listen to the conversation with the client.
         """
-        print("DEBUG: AWAITING LISTEN SIGNAL")
         # Receive signal to start listening
         data = recv_all(conn).decode('utf-8')
-        print(f"DEBUG: DATA: {data}")
         client_msg = json.loads(data)
         if not client_msg['message'] == "LISTEN":
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
-        print("DEBUG: RECEIVED LISTEN SIGNAL")
 
         hear()  # Start listening
 
         send_speak(conn)  # Signal the client to start speaking because we are listening
-        print("DEBUG: SENT SPEAK SIGNAL")
 
-        print("DEBUG: AWAITING STOP SIGNAL")
         # Receive signal to stop listening
         data = recv_all(conn).decode('utf-8')
         client_msg = json.loads(data)
         if not client_msg['message'] == "STOP":
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
-        print("DEBUG: RECEIVED STOP SIGNAL")
 
         message = stop_hearing()  # Stop listening and process the audio
 
@@ -110,21 +102,17 @@ class ConversationManager:
         messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
         send_listen(conn)  # Signal the client to start listening
-        print("DEBUG: SENT LISTEN SIGNAL")
 
-        print("DEBUG: AWAITING SPEAK SIGNAL")
         # Receive signal to start speaking
         data = recv_all(conn).decode('utf-8')
         client_msg = json.loads(data)
         if not client_msg['message'] == "SPEAK":
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
-        print("DEBUG: RECEIVED SPEAK SIGNAL")
 
         speak(response, self.change_voice)  # Speak the response
 
         send_stop(conn)  # Signal the client to stop listening
-        print("DEBUG: SENT STOP SIGNAL")
 
 
 class ConversationManagerClient(ConversationManager):
@@ -140,21 +128,17 @@ class ConversationManagerClient(ConversationManager):
         if not msg['message'] == "LISTEN":
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
-        print("DEBUG: RECEIVED LISTEN SIGNAL")
 
         hear()  # Start listening
 
         send_speak(conn)  # Signal the client to start speaking because we are listening
-        print("DEBUG: SENT SPEAK SIGNAL")
 
-        print("DEBUG: AWAITING STOP SIGNAL")
         # Receive signal to stop listening
         data = recv_all(conn).decode('utf-8')
         msg = json.loads(data)
         if not msg['message'] == "STOP":
             print(f"Error: No se reconoce el comando. Datos recibidos: {data}")
             sys.exit()
-        print("DEBUG: RECEIVED STOP SIGNAL")
 
         message = stop_hearing()  # Stop listening and process the audio
 
@@ -169,7 +153,6 @@ class ConversationManagerClient(ConversationManager):
         messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
         send_listen(conn)  # Signal the client to start listening
-        print("DEBUG: SENT LISTEN SIGNAL")
 
         return response
 
@@ -180,9 +163,7 @@ class ConversationManagerClient(ConversationManager):
         if not msg['message'] == "SPEAK":
             print(f"Error: No se reconoce el comando. Datos recibidos: {msg}")
             sys.exit()
-        print("DEBUG: RECEIVED SPEAK SIGNAL")
 
         speak(text, self.change_voice)  # Speak the response
 
         send_stop(conn)  # Signal the client to stop listening
-        print("DEBUG: SENT STOP SIGNAL")

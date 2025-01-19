@@ -59,7 +59,6 @@ def check_personality_change(winner, messages_left, conn, model1_personality, mo
 
     if model2_new_personality is not None:
         time.sleep(0.1) # Small delay to avoid race conditions
-        print("DEBUG: SENDING NEW PERSONALITY TO CLIENT")
         conn.sendall(json.dumps({  # Send the new personality to the client
             'name': "personality",  # Client reconizes personality messages as petitions to change personality
             'message': model2_new_personality
@@ -72,24 +71,13 @@ def check_message_count(remaining_messages, conn):
     Check the remaining messages and send a signal to the client if needed.
     """
     if remaining_messages <= 0:  # If we are out of messages, break the loop
-        print("DEBUG: NO MORE MESSAGES")
-        print("DEBUG:  SENDING END SIGNAL")
         time.sleep(0.1)
         conn.sendall(json.dumps({
             'name': "system",
             'message': "END"
         }).encode('utf-8'))
         return True
-
-    # elif remaining_messages == 1 and starting_model == 1:  # A single message is left, send a message to the client informing them
-    #     if not CONVERSATION_LENGTH%2 == 0:
-    #         print("DEBUG: SENDING END")
-    #         time.sleep(0.1)
-    #         conn.sendall(json.dumps({
-    #             'name': "system",
-    #             'message': "END-IN-ONE"
-    #         }).encode('utf-8'))
-
+    
     return False       
 
 def generate_name(model, cm, blacklisted=None):
@@ -195,7 +183,6 @@ def main():
 
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
-    starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     #winner (0 = Server, 1 = Client)
     winner = 0  if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 1 
     

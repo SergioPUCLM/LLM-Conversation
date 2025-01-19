@@ -22,12 +22,10 @@ def check_message(messages, client_socket):
 
             # NOTE: CHECK PERSONALITY CHANGE, END OR END IN ONE
             if server_msg['message'] == "END": # If we recieve an END, end the conversation
-                print("DEBUG: END SIGNAL RECIEVED, STOPPING CONVERSATION INMEDIADELY")
                 return (True, None)
 
             server_msg = json.loads(split[1])
             if server_msg['name'] == "personality":
-                print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
                 personality = server_msg['message']
                 messages[0] = {"role": "system", "content":personality}
                 
@@ -36,11 +34,9 @@ def check_message(messages, client_socket):
 
         # NOTE: CHECK PERSONALITY CHANGE, END OR END IN ONE
         if server_msg['message'] == "END": # If we recieve an END, end the conversation
-            print("DEBUG: END SIGNAL RECIEVED, STOPPING CONVERSATION INMEDIADELY")
             return (True, None)
 
         if server_msg['name'] == "personality":
-            print("DEBUG: PERSONALITY CHANGE SIGNAL RECIEVED, SWITCHING PERSONALITY")
             personality = server_msg['message']
             messages[0] = {"role": "system", "content":personality}
             
@@ -135,7 +131,6 @@ def main():
         print("\nSe ha producido un error inesperado:", e)
     finally:
         client_socket.close()
-        #print(messages)
         print("Conexión cerrada correctamente.")
 
 if __name__ == "__main__":
