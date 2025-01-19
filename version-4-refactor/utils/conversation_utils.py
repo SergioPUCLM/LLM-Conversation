@@ -9,7 +9,7 @@ from utils.common_utils import hear, stop_hearing, speak
 
 
 class ConversationManager:
-    def __init__(self, conversation_temperature, frequency_penalty, presence_penalty, api_key=None):
+    def __init__(self, conversation_temperature, frequency_penalty, presence_penalty, api_key=None, change_voice=False):
         load_dotenv()
         if api_key is None:
             self.api_key = os.getenv('API_KEY_1')
@@ -19,6 +19,7 @@ class ConversationManager:
         self.conversation_temperature = conversation_temperature
         self.frequency_penalty = frequency_penalty
         self.presence_penalty = presence_penalty
+        self.change_voice = change_voice
 
     def generate_response(self, model,messages):
         """
@@ -62,7 +63,7 @@ class ConversationManager:
             sys.exit()
         print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-        speak(response)  # Speak the response
+        speak(response, self.change_voice)  # Speak the response
 
         messages.append({"role": "assistant", "content": response})  # Append our response to the message history
 
@@ -120,17 +121,17 @@ class ConversationManager:
             sys.exit()
         print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-        speak(response)  # Speak the response
+        speak(response, self.change_voice)  # Speak the response
 
         send_stop(conn)  # Signal the client to stop listening
         print("DEBUG: SENT STOP SIGNAL")
 
 
 class ConversationManagerClient(ConversationManager):
-    def __init__(self, conversation_temperature, frequency_penalty, presence_penalty, api_key=None):
+    def __init__(self, conversation_temperature, frequency_penalty, presence_penalty, api_key=None, change_voice=True):
         if api_key is None:
             api_key = os.getenv('API_KEY_2')
-        super().__init__(conversation_temperature, frequency_penalty, presence_penalty, api_key)
+        super().__init__(conversation_temperature, frequency_penalty, presence_penalty, api_key, change_voice)
 
     def conversation_listen_data(self, conn, msg):
         """
@@ -181,7 +182,7 @@ class ConversationManagerClient(ConversationManager):
             sys.exit()
         print("DEBUG: RECEIVED SPEAK SIGNAL")
 
-        speak(text)  # Speak the response
+        speak(text, self.change_voice)  # Speak the response
 
         send_stop(conn)  # Signal the client to stop listening
         print("DEBUG: SENT STOP SIGNAL")

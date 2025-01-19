@@ -95,7 +95,7 @@ def stop_hearing():
             print(f"Error converting speech to text: {e}")
             return ""
 
-def speak(text):
+def speak(text, change_voice=False):
     """
     Blocking function to convert text to speech and play it
     """
@@ -103,7 +103,7 @@ def speak(text):
     try:
         # Convert text to speech
         output_file = 'temp_speech.wav'
-        text_to_speech(text, output_file)
+        text_to_speech(text, output_file, change_voice)
         
         speaking_window.update_avatar(is_open=False)
         # Play the audio (blocking)
@@ -135,17 +135,25 @@ def speech_to_text(audio_file):
     
     return response.results[0].alternatives[0].transcript
 
-def text_to_speech(text, output_file):
+def text_to_speech(text, output_file, change_voice=False):
     """
     Convert text to speech using Google Cloud Text-to-Speech API.
     """
     client = texttospeech.TextToSpeechClient()
     synthesis_input = texttospeech.SynthesisInput(text=text)
 
-    voice = texttospeech.VoiceSelectionParams(
-        language_code="es-ES",
-        ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL,
-    )
+    if change_voice:
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="es-ES",
+            ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL,
+        )
+        print("Voice changed")
+    else:
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="es-ES",
+            name="es-ES-Standard-C",
+        )
+
     audio_config = texttospeech.AudioConfig(
         audio_encoding=texttospeech.AudioEncoding.LINEAR16
     )
