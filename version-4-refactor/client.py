@@ -103,7 +103,7 @@ def main():
             messages = cm.start_conversation(personality, model, topic, start_message, client_socket)
     
             # Listen the server
-            cm.conversation_listen(client_socket)
+            message = cm.conversation_listen(client_socket)
             messages.append(message)
 
         # ============ CONVERSATION PHASE ============

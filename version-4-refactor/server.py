@@ -187,7 +187,7 @@ def main():
     model2_name = generate_name(model2, cm, model1_name)  # Generate a name for the client model
 
     starting_model = random.choice([0, 1]) # 0 = Server starts, 1 = Client starts
-    starting_model = 0  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
+    starting_model = 1  #FIXME: THIS IS HERE FOR TESTING PURPOSES. REMOVE THIS LINE ONCE TESTING IS DONE
     #winner (0 = Server, 1 = Client)
     winner = 0  if (starting_model == 0 and CONVERSATION_LENGTH % 2 == 0) or (starting_model == 1 and CONVERSATION_LENGTH % 2 != 0)  else 1 
     
@@ -238,10 +238,18 @@ def main():
             remaining_messages -= 1  # Decrease the remaining messages
     
         else:
+
+            # Listen client and Initiate message history
+            message = cm.conversation_listen(conn)
+            remaining_messages -= 1
+
             messages = [{"role": "system", "content":model1_personality},
                         {"role": "user", "content": topic + "\n\n------------------------------\n"+ message["content"]}]
-   
-        
+
+
+            # Speak to client
+            cm.conversation_speak(conn, model1, messages)
+            remaining_messages -= 1
 
         # ============ CONVERSATION PHASE ============
         while True:  # Loop to keep the conversation going
