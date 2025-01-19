@@ -1,4 +1,3 @@
-import sys
 import os
 import json
 
@@ -8,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 
-from avatar import create_avatar_random
+from interface.avatar import create_avatar_random
 
 class DebateConfigInterface:
     def __init__(self):

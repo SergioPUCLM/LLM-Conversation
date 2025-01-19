@@ -6,7 +6,7 @@ import numpy as np
 
 from google.cloud import texttospeech, speech
 
-from interface import SpeakingWindow
+from interface.interface import SpeakingWindow
 
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./google-credentials.json" # Set the Google credentials
